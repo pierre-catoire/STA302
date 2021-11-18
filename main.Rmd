@@ -171,3 +171,128 @@ xyplot(CESDT6~AGEFIN6-AGE0,
        )
 ```
 
+### Verification de la normalité de la variable d'intérêt
+
+```{r}
+par(mfrow=c(2,3))
+plot(density(df$CESDT0,na.rm=T))
+plot(density(df$CESDT1,na.rm=T))
+plot(density(df$CESDT2,na.rm=T))
+plot(density(df$CESDT4,na.rm=T))
+plot(density(df$CESDT5,na.rm=T))
+plot(density(df$CESDT6,na.rm=T))
+```
+
+On propose une transformation en log :
+
+```{r}
+par(mfrow=c(2,3))
+plot(density(log(df$CESDT0),na.rm=T))
+plot(density(log(df$CESDT1),na.rm=T))
+plot(density(log(df$CESDT2),na.rm=T))
+plot(density(log(df$CESDT4),na.rm=T))
+plot(density(log(df$CESDT5),na.rm=T))
+plot(density(log(df$CESDT6),na.rm=T))
+```
+
+```{r}
+par(mfrow=c(2,3))
+plot(density(sqrt(df$CESDT0),na.rm=T))
+plot(density(sqrt(df$CESDT1),na.rm=T))
+plot(density(sqrt(df$CESDT2),na.rm=T))
+plot(density(sqrt(df$CESDT4),na.rm=T))
+plot(density(sqrt(df$CESDT5),na.rm=T))
+plot(density(sqrt(df$CESDT6),na.rm=T))
+```
+
+
+### Présentation du modèle
+
+On propose le modèle suivant :
+
+$$
+Y_{ij} = (\beta_{0}+\alpha_{0i}+\beta_{2}^{T}X)+(\beta_{1}+\alpha_{1i}+\beta_{3}^{T}X)t_{ij}+\epsilon
+$$
+
+avec :
+$$
+\alpha = \begin{pmatrix}\alpha_{0i} \\ \alpha_{1i}\end{pmatrix} \sim\mathcal{N}\big( 0,\mathcal{B}\big)
+$$
+
+et
+
+$$
+\epsilon \sim \mathcal{N}(0,\sigma_{e}^{2})
+$$
+
+
+
+```{r}
+# Modification de la table
+
+# Sauvegarde de la table
+dfSave = df
+df = dfSave
+#df = dfSave
+
+#Création d'une variable NVISITE qui prend une valeur 0, 1, 2, 4, 5, 6 selon le numéro de la visite
+df$NVISITE = ifelse(is.na(df$AGE0),NA,0)
+df$AGEVISITE = df$AGE0
+df$CESDTVISITE = df$CESDT0
+
+for(id in sort(dfSave$ID)){
+  newrow1 = c()
+  newrow2 = c()
+  newrow4 = c()
+  newrow5 = c()
+  newrow6 = c()
+  
+  if(!is.na(df[df$ID==id,]$AGE1)){
+    newrow1 = c(df[df$ID == id,])
+    newrow1$NVISITE = 1
+    newrow1$AGEVISITE = newrow1$AGE1
+    newrow1$CESDTVISITE = newrow1$CESDT1
+  }
+  
+  if(!is.na(df[df$ID==id,]$AGE2)){
+    newrow2 = c(df[df$ID == id,])
+    newrow2$NVISITE = 2
+    newrow2$AGEVISITE = newrow2$AGE2
+    newrow2$CESDTVISITE = newrow2$CESDT2
+  }
+  
+  if(!is.na(df[df$ID==id,]$AGE4)){
+    newrow4 = c(df[df$ID == id,])
+    newrow4$NVISITE = 4
+    newrow4$AGEVISITE = newrow4$AGE4
+    newrow4$CESDTVISITE = newrow4$CESDT4
+  }
+  
+  if(!is.na(df[df$ID==id,]$AGE5)){
+    newrow5 = c(df[df$ID == id,])
+    newrow5$NVISITE = 5
+    newrow5$AGEVISITE = newrow5$AGE5
+    newrow5$CESDTVISITE = newrow5$CESDT5
+  }
+  
+  if(!is.na(df[df$ID==id,]$AGE6)){
+    newrow6 = c(df[df$ID == id,])
+    newrow6$NVISITE = 6
+    newrow6$AGEVISITE = newrow6$AGE6
+    newrow6$CESDTVISITE = newrow6$CESDT6
+  }
+  
+  if(length(newrow1) != 0){df[nrow(df)+1,] = newrow1}
+  if(length(newrow2) != 0){df[nrow(df)+1,] = newrow2}
+  if(length(newrow4) != 0){df[nrow(df)+1,] = newrow4}
+  if(length(newrow5) != 0){df[nrow(df)+1,] = newrow5}
+  if(length(newrow6) != 0){df[nrow(df)+1,] = newrow6}
+}
+
+df = df[order(df$ID),
+
+```
+
+
+Je reajoute
+
