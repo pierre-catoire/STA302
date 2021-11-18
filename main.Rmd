@@ -14,6 +14,8 @@ library(mice)
 library(visdat)
 library(VIM)
 library(epiDisplay)
+library(lattice)
+library(nlme)
 
 set.seed(1)
 ```
@@ -78,23 +80,50 @@ labels(df) = c("Indicateur de décès",
                "Identifiant du sujet")
 ```
 
+#### Création d'un jeu de données "éclaté"
+
+On crée un jeu de données `{r}shatter` qui présente les données avec une ligne par visite (indexée par ID). Cette opération est longue et décrite dans la fonction `{r}shatterData()` du fichier externe `{r}externalFunctions.R`. Alternativement, on peut importer directement le fichier éclaté `{r}ShatteredDataFrame.csv`.
+
+```{r}
+shatter = read.csv("ShatteredDataFrame.csv")
+
+#Création d'une variable temps :
+```
+
+
 ```{r}
 sapply(c("factor","numeric"),
        papeR::summarise,
        data = df)
 ```
 
+#### Spaghetti plot
+
 ```{r}
-#Création d'une variable IO (Indicateur d'observation), qui prend pour valeur :
-# - 1 si aucune donnée manquante
-# - 0 si au moins une donnée manquante
-df$IO = ifelse(complete.cases(df),1,0)
-
-vis_dat(df)
-md.pattern(df)[length(md.pattern(df)[,1]),]/length(df$ID)
-
-tabpct(df$DEM0_6,df$IO)
+#Option par lattice
+color <- shatter$SEXE +1
+xyplot(CESDTVISITE ~ AGEVISITE-AGE0,
+       group=ID,
+       data=shatter[shatter$ID%%10==0,],
+       col=color,
+       lwd=1,
+       type = 'l',bty="n",
+       xlab = "Délai depuis l'entrée",
+       ylab = "Score CESD")
 ```
+
+```{r}
+#Option par ggplot2
+p <- (ggplot(shatter)
++ geom_line(aes(x = AGEVISITE-AGE0, y = CESDTVISITE, group = ID), color="grey30", alpha = 0.8)
++ stat_smooth(aes(x = AGEVISITE-AGE0, y = CESDTVISITE), method = "loess", size = 0.75)
++ theme_bw()
++ xlab("Délai depuis l'entrée dans la cohorte (en années)")
++ ylab("Score CESDT")
+)
+p
+```
+
 
 On constate qu'il y a des données manquantes pour les variables CESDT0 à CESDT6 et AGE1 à AGE6. Ces données manquantes peuvent correspondre à des dates de dernière nouvelle ou à des absences intermittentes. On teste cette question sur AGE1 et AGE2.
 
@@ -103,73 +132,6 @@ df %>% filter(is.na(AGE1) & !is.na(AGE2))
 ```
 
 Il y a donc des patients qui ont été absents à la visite 1 et non à la visite 2.
-
-On recherche s'il y a des visites où l'âge a été recueilli et non le score de dépression :
-
-```{r}
-df %>% filter(is.na(AGE0) & !is.na(CESDT0))
-df %>% filter(is.na(AGE6) & !is.na(CESDT6))
-```
-
-Il n'y a pas de tel cas.
-
-### Imputation multiple
-
-```{r}
-pred_mat = matrix(rep(1), nrow = ncol(df), ncol = ncol(df))
-names = colnames(df)
-rownames(pred_mat) = names
-colnames(pred_mat) = names
-diag(pred_mat) = 0
-pred_mat[c("ID", "IO"),] = 0
-
-#A revoir sur quelles variables doivent être ""
-imput_method = method = c("",
-                          "",
-                          "",
-                          "norm",
-                          "",
-                          "",
-                          "",
-                          "",
-                          "",
-                          "",
-                          "norm",
-                          "",
-                          "",
-                          "norm",
-                          "norm",
-                          "norm",
-                          "norm",
-                          "norm",
-                          "norm",
-                          "norm",
-                          "norm",
-                          "norm",
-                          "",
-                          "")
-df_imput = mice(data = df,
-                m = 10,
-                method = imput_method,
-                predictorMatrix = pred_mat,
-                seed = 1000)
-df_imput$imp$CESDT5
-```
-
-
-A faire :
-- description des données
-- description des variables manquantes
-- imputation multiple
-
-Quel codage du sexe ?!
-
-```{r}
-xyplot(CESDT6~AGEFIN6-AGE0,
-       group=ID,data=df,
-       type=c("l")
-       )
-```
 
 ### Verification de la normalité de la variable d'intérêt
 
@@ -204,6 +166,12 @@ plot(density(sqrt(df$CESDT4),na.rm=T))
 plot(density(sqrt(df$CESDT5),na.rm=T))
 plot(density(sqrt(df$CESDT6),na.rm=T))
 ```
+On crée donc une variable `{r}LOGCESDT` (on ajoute 1 pour permettre que la fonction log soit définie sur toutes les valeurs) :
+
+```{r}
+shatter$LOGCESDT = log(shatter$CESDTVISITE+1)
+shatter$DELAI = shatter$AGEVISITE-shatter$AGE0
+```
 
 
 ### Présentation du modèle
@@ -225,74 +193,16 @@ $$
 \epsilon \sim \mathcal{N}(0,\sigma_{e}^{2})
 $$
 
-
+#### Implémentation du modèle
 
 ```{r}
-# Modification de la table
+model = lme(fixed = LOGCESDT ~ DELAI,
+            data = shatter,
+            random = ~ DELAI | ID,
+            method="ML",
+            na.action=na.omit)
 
-# Sauvegarde de la table
-dfSave = df
-df = dfSave
-#df = dfSave
-
-#Création d'une variable NVISITE qui prend une valeur 0, 1, 2, 4, 5, 6 selon le numéro de la visite
-df$NVISITE = ifelse(is.na(df$AGE0),NA,0)
-df$AGEVISITE = df$AGE0
-df$CESDTVISITE = df$CESDT0
-
-for(id in sort(dfSave$ID)){
-  newrow1 = c()
-  newrow2 = c()
-  newrow4 = c()
-  newrow5 = c()
-  newrow6 = c()
-  
-  if(!is.na(df[df$ID==id,]$AGE1)){
-    newrow1 = c(df[df$ID == id,])
-    newrow1$NVISITE = 1
-    newrow1$AGEVISITE = newrow1$AGE1
-    newrow1$CESDTVISITE = newrow1$CESDT1
-  }
-  
-  if(!is.na(df[df$ID==id,]$AGE2)){
-    newrow2 = c(df[df$ID == id,])
-    newrow2$NVISITE = 2
-    newrow2$AGEVISITE = newrow2$AGE2
-    newrow2$CESDTVISITE = newrow2$CESDT2
-  }
-  
-  if(!is.na(df[df$ID==id,]$AGE4)){
-    newrow4 = c(df[df$ID == id,])
-    newrow4$NVISITE = 4
-    newrow4$AGEVISITE = newrow4$AGE4
-    newrow4$CESDTVISITE = newrow4$CESDT4
-  }
-  
-  if(!is.na(df[df$ID==id,]$AGE5)){
-    newrow5 = c(df[df$ID == id,])
-    newrow5$NVISITE = 5
-    newrow5$AGEVISITE = newrow5$AGE5
-    newrow5$CESDTVISITE = newrow5$CESDT5
-  }
-  
-  if(!is.na(df[df$ID==id,]$AGE6)){
-    newrow6 = c(df[df$ID == id,])
-    newrow6$NVISITE = 6
-    newrow6$AGEVISITE = newrow6$AGE6
-    newrow6$CESDTVISITE = newrow6$CESDT6
-  }
-  
-  if(length(newrow1) != 0){df[nrow(df)+1,] = newrow1}
-  if(length(newrow2) != 0){df[nrow(df)+1,] = newrow2}
-  if(length(newrow4) != 0){df[nrow(df)+1,] = newrow4}
-  if(length(newrow5) != 0){df[nrow(df)+1,] = newrow5}
-  if(length(newrow6) != 0){df[nrow(df)+1,] = newrow6}
-}
-
-df = df[order(df$ID),
-
+summary(model)
 ```
 
-
-Je reajoute
 
