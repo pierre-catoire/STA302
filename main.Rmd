@@ -204,5 +204,90 @@ model = lme(fixed = LOGCESDT ~ DELAI,
 
 summary(model)
 ```
+#Modèle avec SOM (recherche si log ou sqrt le plus pertinent : Blandine)
+
+```{r}
+#### modèle vide avec effets aléatoires sur l'intercept 
+
+model_interc = lme(fixed = LOGCESDT ~ DELAI,
+            data = shatter,
+            random = ~ 1 | ID,
+            method="ML",
+            na.action=na.omit)
+
+summary(model_interc)
+
+#### modèle vide avec effets aléatoires sur intercept et pente
+model_int_pente = lme(fixed = LOGCESDT ~ DELAI,
+            data = shatter,
+            random = ~ 1+ DELAI | ID,
+            method="ML",
+            na.action=na.omit)
+
+summary(model_int_pente)
+
+### test pente aléatoire pertinente?
+devm1m2 <- 2*logLik(model_int_pente) - 2*logLik(model_interc)
+pm1m2 <- 0.5*(1-pchisq(devm1m2,df=2)) + 0.5*(1-pchisq(devm1m2,df=1))
+pm1m2
+
+#oui garder les 2
+
+### tester si intercept et pente aléatoires indépendants
+
+m1indep <- lme(fixed = LOGCESDT ~ DELAI,
+            data = shatter,
+        random = list(~ 1 |ID, ~-1 + DELAI|ID) ,method="ML",na.action=na.omit )
+summary(m1indep)
 
 
+c(AIC(m1indep), AIC(model_int_pente))
+
+devm1indep <- 2*logLik(model_int_pente) - 2*logLik(m1indep)
+p <- 1-pchisq(devm1indep ,df=1)
+p
+#### pour moi la pente et l'intercept aléatoires ne sont pas indépendants mais à checker
+```
+
+#### Modèle SOM (log)
+```{r}
+model = lme(fixed = LOGCESDT ~ DELAI*(SOM +factor(CENTRE) +ETUDE_CLAS0+SEXE +ANTIDEP0+AGE0),
+            data = shatter,
+            random = ~ 1 + DELAI | ID,
+            method="ML",
+            na.action=na.omit)
+
+summary(model)
+
+AIC(model)
+```
+#### Modèle SOM (sqrt)
+
+```{r}
+shatter$SQRTCESDT <- sqrt(shatter$CESDTVISITE)
+
+model_sq = lme(fixed = SQRTCESDT ~ DELAI*(SOM +CENTRE +ETUDE_CLAS0+SEXE +ANTIDEP0),
+            data = shatter,
+            random = ~ 1 + DELAI | ID,
+            method="ML",
+            na.action=na.omit)
+
+summary(model_sq)
+
+AIC(model_sq)
+```
+
+####### on garde le modèle avec le log car AIC inférieure
+
+#### Adéquation du modèle
+```{r}
+# plot résidus standardiés 
+plot (model)
+
+{
+par(mfrow=c(1,2))
+hist(model$coefficients$random$ID[,1],xlab="intercept",main="predicted random intercept")
+hist(model$coefficients$random$ID[,2],xlab="pente",main="predicted random slope")
+}
+
+```
