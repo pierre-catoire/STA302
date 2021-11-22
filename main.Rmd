@@ -4,8 +4,7 @@ author: "Pierre Catoire"
 date: "15/11/2021"
 output: html_document
 ---
-
-```{r setup, include=FALSE}
+```{r}
 knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
 library(dplyr)
@@ -16,34 +15,13 @@ library(VIM)
 library(epiDisplay)
 library(lattice)
 library(nlme)
-
 set.seed(1)
-```
-
-## Enoncé
-
-Sujet 5: Association entre score de santé cardio-vasculaire optimale et évolution de la symptomatologie dépressive chez les personnes âgées.
-
-Un score de Santé Cardio-Vasculaire optimale a été très récemment associé à un risque réduit de démence et un déclin cognitif moindre chez les personnes âgées [1]. L’objectif de ce projet est d’évaluer si ce score de santé Cardio-Vasculaire optimale est aussi associé à l’évolution de la symptomatologie dépressive chez les personnes âgées. Dans un premier temps, il s’agira d’évaluer l’impact de la santé cardio-vasculaire optimale
-sur la trajectoire de la symptomatologie dépressive telle que mesurée par la CES-D (la CES-D sera considérée comme une variable quantitative). Dans un deuxième temps, on pourra prendre en compte dans l’analyse l’association entre trajectoire de CES-D et la survenue de démence.
-
-Données
-
-Le travail sera réalisé à partir des données de l’étude des 3 Cités (3C), une cohorte populationnelle multicentrique (Bordeaux, Dijon, Montpellier) dont l’objectif était d’étudier l’impact des facteurs vasculaires sur le risque de démence dans la population âgée de 65 ans et plus. Est mis à la disposition du projet un extrait de la cohorte 3C sur les trois villes. La CES-D a été mesurée à l’inclusion puis aux suivis 1,2,4,5 et 6 ayant
-eu lieu environ 2 ans, 4 ans, 7 ans, 10 ans et 12 ans après l’inclusion. L’analyse pourra être ajustée sur des facteurs de confusion potentiels.
-
-## Chargement des données
-
-```{r}
 df = read.delim("base_3C_CVideal.txt")
 names(df) = toupper(names(df))
-
 #Vérification de l'absence de données manquantes
 nrow(df[is.na.data.frame(df),])
-
 #Vérification du type de variables
 sapply(df,class)
-
 #Correction du type de variables
 df$DC6 = as.factor(df$DC6)
 df$SEXE = as.factor(df$SEXE)
@@ -51,10 +29,8 @@ df$DEM0_6 = as.factor(df$DEM0_6)
 df$CENTRE = as.factor(df$CENTRE)
 df$ETUDE_CLAS0 = as.factor(df$ETUDE_CLAS0)
 df$ANTIDEP0 = as.factor(df$ANTIDEP0)
-
 #Vérification de la correction des types de variables
 sapply(df,class)
-
 labels(df) = c("Indicateur de décès",
                "Âge au décès ou âge aux dernières nouvelles",
                "Sexe",
@@ -78,30 +54,35 @@ labels(df) = c("Indicateur de décès",
                "Score CES-D à la visite de suivi 5",
                "Score CES-D à la visite de suivi 6",
                "Identifiant du sujet")
-```
-
-#### Création d'un jeu de données "éclaté"
-
-On crée un jeu de données `{r}shatter` qui présente les données avec une ligne par visite (indexée par ID). Cette opération est longue et décrite dans la fonction `{r}shatterData()` du fichier externe `{r}externalFunctions.R`. Alternativement, on peut importer directement le fichier éclaté `{r}ShatteredDataFrame.csv`.
-
-```{r}
 shatter = read.csv("ShatteredDataFrame.csv")
-
-#Création d'une variable temps :
 ```
 
 
+Description variables : 
+
 ```{r}
+shatter$DC6 = as.factor(shatter$DC6)
+shatter$SEXE = as.factor(shatter$SEXE)
+shatter$DEM0_6 = as.factor(shatter$DEM0_6)
+shatter$CENTRE = as.factor(shatter$CENTRE)
+shatter$ETUDE_CLAS0 = as.factor(shatter$ETUDE_CLAS0)
+shatter$ANTIDEP0 = as.factor(shatter$ANTIDEP0)
 sapply(c("factor","numeric"),
        papeR::summarise,
        data = df)
 ```
+Nombre de mesures par sujet : 
+```{r}
+ndmes = table(shatter$ID[!is.na(shatter$CESDTVISITE)])
+table(ndmes)
+plot(table(ndmes))
+```
 
-#### Spaghetti plot
+Spaguettis plots :
 
 ```{r}
 #Option par lattice
-color <- shatter$SEXE +1
+color <- shatter$SEXE
 xyplot(CESDTVISITE ~ AGEVISITE-AGE0,
        group=ID,
        data=shatter[shatter$ID%%10==0,],
@@ -111,9 +92,9 @@ xyplot(CESDTVISITE ~ AGEVISITE-AGE0,
        xlab = "Délai depuis l'entrée",
        ylab = "Score CESD")
 ```
+#Option par ggplot2
 
 ```{r}
-#Option par ggplot2
 p <- (ggplot(shatter)
 + geom_line(aes(x = AGEVISITE-AGE0, y = CESDTVISITE, group = ID), color="grey30", alpha = 0.8)
 + stat_smooth(aes(x = AGEVISITE-AGE0, y = CESDTVISITE), method = "loess", size = 0.75)
@@ -124,19 +105,20 @@ p <- (ggplot(shatter)
 p
 ```
 
-
 On constate qu'il y a des données manquantes pour les variables CESDT0 à CESDT6 et AGE1 à AGE6. Ces données manquantes peuvent correspondre à des dates de dernière nouvelle ou à des absences intermittentes. On teste cette question sur AGE1 et AGE2.
 
 ```{r}
 df %>% filter(is.na(AGE1) & !is.na(AGE2))
 ```
 
+
 Il y a donc des patients qui ont été absents à la visite 1 et non à la visite 2.
 
-### Verification de la normalité de la variable d'intérêt
+### Transformation de variable d'intérêt
+
+Vérifictation de la normalité de la varible d'interet:
 
 ```{r}
-par(mfrow=c(2,3))
 plot(density(df$CESDT0,na.rm=T))
 plot(density(df$CESDT1,na.rm=T))
 plot(density(df$CESDT2,na.rm=T))
@@ -145,10 +127,9 @@ plot(density(df$CESDT5,na.rm=T))
 plot(density(df$CESDT6,na.rm=T))
 ```
 
-On propose une transformation en log :
+Transformation en log
 
 ```{r}
-par(mfrow=c(2,3))
 plot(density(log(df$CESDT0),na.rm=T))
 plot(density(log(df$CESDT1),na.rm=T))
 plot(density(log(df$CESDT2),na.rm=T))
@@ -157,8 +138,9 @@ plot(density(log(df$CESDT5),na.rm=T))
 plot(density(log(df$CESDT6),na.rm=T))
 ```
 
+Ou quadratique 
+
 ```{r}
-par(mfrow=c(2,3))
 plot(density(sqrt(df$CESDT0),na.rm=T))
 plot(density(sqrt(df$CESDT1),na.rm=T))
 plot(density(sqrt(df$CESDT2),na.rm=T))
@@ -166,10 +148,12 @@ plot(density(sqrt(df$CESDT4),na.rm=T))
 plot(density(sqrt(df$CESDT5),na.rm=T))
 plot(density(sqrt(df$CESDT6),na.rm=T))
 ```
-On crée donc une variable `{r}LOGCESDT` (on ajoute 1 pour permettre que la fonction log soit définie sur toutes les valeurs) :
+
+On crée donc une variable `{r}LOGCESDT` (on ajoute 1 pour permettre que la fonction log soit définie sur toutes les valeurs) et notre variable delai:
 
 ```{r}
 shatter$LOGCESDT = log(shatter$CESDTVISITE+1)
+shatter$SQRTCESDT = sqrt(shatter$CESDTVISITE)
 shatter$DELAI = shatter$AGEVISITE-shatter$AGE0
 ```
 
@@ -186,96 +170,114 @@ avec :
 $$
 \alpha = \begin{pmatrix}\alpha_{0i} \\ \alpha_{1i}\end{pmatrix} \sim\mathcal{N}\big( 0,\mathcal{B}\big)
 $$
-
 et
 
 $$
 \epsilon \sim \mathcal{N}(0,\sigma_{e}^{2})
 $$
 
-#### Implémentation du modèle
+### Modèle univarié
+
+On compare le modèle log au modèle SQRTCESDT :
 
 ```{r}
-model = lme(fixed = LOGCESDT ~ DELAI,
-            data = shatter,
-            random = ~ DELAI | ID,
-            method="ML",
-            na.action=na.omit)
+modelLogUni = lme(LOGCESDT ~ DELAI,
+                  random = ~ DELAI | ID,
+                  data=shatter,
+                  method="ML",
+                  na.action=na.omit)
 
-summary(model)
+summary(modelLogUni)
 ```
-#Modèle avec SOM (recherche si log ou sqrt le plus pertinent : Blandine)
 
 ```{r}
-#### modèle vide avec effets aléatoires sur l'intercept 
+modelSqrtUni = lme(SQRTCESDT ~ DELAI,
+                   random = ~ DELAI | ID,
+                   data=shatter,
+                   method="ML",
+                   na.action=na.omit)
+summary(modelSqrtUni)
 
+AIC(modelLogUni)
+AIC(modelSqrtUni)
+```
+On note que l'AIC du modèle log univarié est inférieur au modèle SQRT univarié.
+
+### Modèle multivarié SOM
+
+#### Modèle vide avec effets aléatoires sur l'intercept 
+
+```{r}
 model_interc = lme(fixed = LOGCESDT ~ DELAI,
             data = shatter,
             random = ~ 1 | ID,
             method="ML",
             na.action=na.omit)
-
 summary(model_interc)
+```
 
 #### modèle vide avec effets aléatoires sur intercept et pente
+
+```{r}
 model_int_pente = lme(fixed = LOGCESDT ~ DELAI,
             data = shatter,
-            random = ~ 1+ DELAI | ID,
+            random = ~ DELAI | ID,
             method="ML",
             na.action=na.omit)
-
 summary(model_int_pente)
+```
 
 ### test pente aléatoire pertinente?
+
+```{r}
 devm1m2 <- 2*logLik(model_int_pente) - 2*logLik(model_interc)
 pm1m2 <- 0.5*(1-pchisq(devm1m2,df=2)) + 0.5*(1-pchisq(devm1m2,df=1))
 pm1m2
+```
 
 #oui garder les 2
 
 ### tester si intercept et pente aléatoires indépendants
 
+```{r}
 m1indep <- lme(fixed = LOGCESDT ~ DELAI,
             data = shatter,
         random = list(~ 1 |ID, ~-1 + DELAI|ID) ,method="ML",na.action=na.omit )
-summary(m1indep)
 
+summary(m1indep)
 
 c(AIC(m1indep), AIC(model_int_pente))
 
 devm1indep <- 2*logLik(model_int_pente) - 2*logLik(m1indep)
 p <- 1-pchisq(devm1indep ,df=1)
 p
-#### pour moi la pente et l'intercept aléatoires ne sont pas indépendants mais à checker
 ```
-
+#### pour moi la pente et l'intercept aléatoires ne sont pas indépendants mais à checker
+  
 #### Modèle SOM (log)
+
 ```{r}
 model = lme(fixed = LOGCESDT ~ DELAI*(SOM +factor(CENTRE) +ETUDE_CLAS0+SEXE +ANTIDEP0+AGE0),
             data = shatter,
             random = ~ 1 + DELAI | ID,
             method="ML",
             na.action=na.omit)
-
 summary(model)
-
 AIC(model)
 ```
+
 #### Modèle SOM (sqrt)
 
 ```{r}
-shatter$SQRTCESDT <- sqrt(shatter$CESDTVISITE)
-
 model_sq = lme(fixed = SQRTCESDT ~ DELAI*(SOM +CENTRE +ETUDE_CLAS0+SEXE +ANTIDEP0),
             data = shatter,
-            random = ~ 1 + DELAI | ID,
+            random = ~ 1+DELAI | ID,
             method="ML",
             na.action=na.omit)
-
 summary(model_sq)
-
 AIC(model_sq)
 ```
+
 
 ####### on garde le modèle avec le log car AIC inférieure
 
@@ -283,11 +285,147 @@ AIC(model_sq)
 ```{r}
 # plot résidus standardiés 
 plot (model)
-
 {
 par(mfrow=c(1,2))
-hist(model$coefficients$random$ID[,1],xlab="intercept",main="predicted random intercept")
-hist(model$coefficients$random$ID[,2],xlab="pente",main="predicted random slope")
+plot(density(model$coefficients$random$ID[,1],xlab="intercept",main="predicted random intercept"))
+plot(density(model$coefficients$random$ID[,2],xlab="pente",main="predicted random slope"))
 }
+```
 
+
+
+## Modèle avec SCORE: 
+
+## En univarié : inutile ?
+
+```{r}
+model2 <- lme(LOGCESDT ~ DELAI + SCORE,
+    random = ~ DELAI | ID,
+    data=shatter,
+    method="ML",
+    na.action=na.omit)
+summary(model2)
+model22 <- lme(LOGCESDT ~ DELAI*SCORE,
+    random = ~ DELAI | ID,
+    data=shatter,
+    method="ML",
+    na.action=na.omit)
+summary(model22)
+```
+
+```{r}
+model3 <- lme(LOGCESDT ~ DELAI + SEXE,
+    random = ~ DELAI | ID,
+    data=shatter,
+    method="ML",
+    na.action=na.omit)
+summary(model3)
+model33 <- lme(LOGCESDT ~ DELAI*SEXE,
+    random = ~ DELAI | ID,
+    data=shatter,
+    method="ML",
+    na.action=na.omit)
+summary(model33)
+```
+
+```{r}
+model4 <- lme(LOGCESDT ~ DELAI + factor(CENTRE),
+    random = ~ DELAI | ID,
+    data=shatter,
+    method="ML",
+    na.action=na.omit)
+summary(model4)
+model44 <- lme(LOGCESDT ~ DELAI*factor(CENTRE),
+    random = ~ DELAI | ID,
+    data=shatter,
+    method="ML",
+    na.action=na.omit)
+summary(model44)
+```
+
+```{r}
+model5 <- lme(LOGCESDT ~ DELAI + ANTIDEP0,
+    random = ~ DELAI | ID,
+    data=shatter,
+    method="ML",
+    na.action=na.omit)
+summary(model5)
+model55 <- lme(LOGCESDT ~ DELAI*ANTIDEP0,
+    random = ~ DELAI | ID,
+    data=shatter,
+    method="ML",
+    na.action=na.omit)
+summary(model55)
+```
+
+```{r}
+model6 <- lme(LOGCESDT ~ DELAI + factor(ETUDE_CLAS0),
+    random = ~ DELAI | ID,
+    data=shatter,
+    method="ML",
+    na.action=na.omit)
+summary(model6)
+model66 <- lme(LOGCESDT ~ DELAI*factor(ETUDE_CLAS0),
+    random = ~ DELAI | ID,
+    data=shatter,
+    method="ML",
+    na.action=na.omit)
+summary(model66)
+```
+
+```{r}
+model7 <- lme(LOGCESDT ~ DELAI + AGE0,
+    random = ~ DELAI | ID,
+    data=shatter,
+    method="ML",
+    na.action=na.omit)
+summary(model7)
+model77 <- lme(LOGCESDT ~ DELAI*AGE0,
+    random = ~ DELAI | ID,
+    data=shatter,
+    method="ML",
+    na.action=na.omit)
+summary(model77)
+```
+
+## MODÈLE COMPLET : 
+```{r}
+model8 <- lme(LOGCESDT ~ DELAI* (SCORE + SEXE + factor(ETUDE_CLAS0) + ANTIDEP0 + AGE0 + factor(CENTRE)),
+    random = ~ DELAI | ID,
+    data=shatter,
+    method="ML",
+    na.action=na.omit)
+summary(model8)
+```
+
+##Regarder les p values globales pour les variables quali à plus de 2 modalités :
+##Modèle sans factor(ETUDE_CLAS0): 
+```{r}
+model9 <- lme(LOGCESDT ~ DELAI* (SCORE + SEXE + ANTIDEP0 + factor(CENTRE) + AGE0),
+    random = ~ DELAI | ID,
+    data=shatter,
+    method="ML",
+    na.action=na.omit)
+summary(model9)
+```
+```{r}
+anova(model8,model9)
+```
+
+##Modèle sans "factor(CENTRE)":
+```{r}
+model10 <- lme(LOGCESDT ~ DELAI* (SCORE + SEXE + ANTIDEP0 + factor(ETUDE_CLAS0) + AGE0),
+    random = ~ DELAI | ID,
+    data=shatter,
+    method="ML",
+    na.action=na.omit)
+summary(model10)
+```
+```{r}
+anova(model8,model10)
+```
+
+##Evaluation du fit du modèle: 
+```{r}
+plot(model8)
 ```
