@@ -16,12 +16,26 @@ library(epiDisplay)
 library(lattice)
 library(nlme)
 set.seed(1)
+```
+
+```{r}
+#######################################################
+# Préparation de la table df (une ligne par individu) #
+#######################################################
+
+#Import de la table
 df = read.delim("base_3C_CVideal.txt")
+head(df)
+
+#Mise en majuscule du nom des variables
 names(df) = toupper(names(df))
+
 #Vérification de l'absence de données manquantes
 nrow(df[is.na.data.frame(df),])
+
 #Vérification du type de variables
 sapply(df,class)
+
 #Correction du type de variables
 df$DC6 = as.factor(df$DC6)
 df$SEXE = as.factor(df$SEXE)
@@ -29,8 +43,11 @@ df$DEM0_6 = as.factor(df$DEM0_6)
 df$CENTRE = as.factor(df$CENTRE)
 df$ETUDE_CLAS0 = as.factor(df$ETUDE_CLAS0)
 df$ANTIDEP0 = as.factor(df$ANTIDEP0)
+
 #Vérification de la correction des types de variables
 sapply(df,class)
+
+#Création des labels des variables
 labels(df) = c("Indicateur de décès",
                "Âge au décès ou âge aux dernières nouvelles",
                "Sexe",
@@ -54,35 +71,61 @@ labels(df) = c("Indicateur de décès",
                "Score CES-D à la visite de suivi 5",
                "Score CES-D à la visite de suivi 6",
                "Identifiant du sujet")
+
+#################################################################
+# Mise en forme de la table shatter (une ligne par observation) #
+#################################################################
 shatter = read.csv("ShatteredDataFrame.csv")
-```
+head(shatter)
 
+#Suppression de la première colonne "X"
+shatter=shatter[,2:ncol(shatter)]
+head(shatter)
 
-Description variables : 
+#Vérification du type des variables
+sapply(shatter,class)
 
-```{r}
+#Correction du type des variables
 shatter$DC6 = as.factor(shatter$DC6)
 shatter$SEXE = as.factor(shatter$SEXE)
 shatter$DEM0_6 = as.factor(shatter$DEM0_6)
 shatter$CENTRE = as.factor(shatter$CENTRE)
 shatter$ETUDE_CLAS0 = as.factor(shatter$ETUDE_CLAS0)
 shatter$ANTIDEP0 = as.factor(shatter$ANTIDEP0)
+
+#Vérification de la correction du type des variables
+sapply(shatter,class)
+```
+
+
+### Analyse descriptive
+
+##### Caractéristiques des sujets de l'étude
+
+```{r}
 sapply(c("factor","numeric"),
        papeR::summarise,
        data = df)
 ```
-Nombre de mesures par sujet : 
+
+##### Nombre de mesures par sujet
+
 ```{r}
 ndmes = table(shatter$ID[!is.na(shatter$CESDTVISITE)])
 table(ndmes)
 plot(table(ndmes))
 ```
 
-Spaguettis plots :
+##### Représentation graphique
+
+###### **Spaghetti plots**
 
 ```{r}
-#Option par lattice
-color <- shatter$SEXE
+# Pour améliorer la visibilité, on sélectionne un sous-échantillon des ID dont
+# l'ID est multiple de 10.
+# On retrouve le nombre de sujets par :
+shatter[shatter$ID%%10==0,]$ID %>% unique %>% length
+color <- shatter$ID
 xyplot(CESDTVISITE ~ AGEVISITE-AGE0,
        group=ID,
        data=shatter[shatter$ID%%10==0,],
@@ -90,35 +133,14 @@ xyplot(CESDTVISITE ~ AGEVISITE-AGE0,
        lwd=1,
        type = 'l',bty="n",
        xlab = "Délai depuis l'entrée",
-       ylab = "Score CESD")
-```
-#Option par ggplot2
-
-```{r}
-p <- (ggplot(shatter)
-+ geom_line(aes(x = AGEVISITE-AGE0, y = CESDTVISITE, group = ID), color="grey30", alpha = 0.8)
-+ stat_smooth(aes(x = AGEVISITE-AGE0, y = CESDTVISITE), method = "loess", size = 0.75)
-+ theme_bw()
-+ xlab("Délai depuis l'entrée dans la cohorte (en années)")
-+ ylab("Score CESDT")
-)
-p
+       ylab = "Score CESD",
+       main = "Trajectoire du score CESDT par individu (sous-échantillon de 662 sujets")
 ```
 
-On constate qu'il y a des données manquantes pour les variables CESDT0 à CESDT6 et AGE1 à AGE6. Ces données manquantes peuvent correspondre à des dates de dernière nouvelle ou à des absences intermittentes. On teste cette question sur AGE1 et AGE2.
+### Vérification de la normalité de la distribution de la variable d'intérêt
 
 ```{r}
-df %>% filter(is.na(AGE1) & !is.na(AGE2))
-```
-
-
-Il y a donc des patients qui ont été absents à la visite 1 et non à la visite 2.
-
-### Transformation de variable d'intérêt
-
-Vérifictation de la normalité de la varible d'interet:
-
-```{r}
+par(mfrow=c(2,3))
 plot(density(df$CESDT0,na.rm=T))
 plot(density(df$CESDT1,na.rm=T))
 plot(density(df$CESDT2,na.rm=T))
@@ -127,20 +149,19 @@ plot(density(df$CESDT5,na.rm=T))
 plot(density(df$CESDT6,na.rm=T))
 ```
 
-Transformation en log
+On constate que la distribution de la variable n'est pas normale. On propose deux transformations : logarithmique et quadratique
 
 ```{r}
-plot(density(log(df$CESDT0),na.rm=T))
-plot(density(log(df$CESDT1),na.rm=T))
-plot(density(log(df$CESDT2),na.rm=T))
-plot(density(log(df$CESDT4),na.rm=T))
-plot(density(log(df$CESDT5),na.rm=T))
-plot(density(log(df$CESDT6),na.rm=T))
-```
+#Transformation en log
+par(mfrow=c(2,3))
+plot(density(log(df$CESDT0+1),na.rm=T))
+plot(density(log(df$CESDT1+1),na.rm=T))
+plot(density(log(df$CESDT2+1),na.rm=T))
+plot(density(log(df$CESDT4+1),na.rm=T))
+plot(density(log(df$CESDT5+1),na.rm=T))
+plot(density(log(df$CESDT6+1),na.rm=T))
 
-Ou quadratique 
-
-```{r}
+#Transformation quadratique
 plot(density(sqrt(df$CESDT0),na.rm=T))
 plot(density(sqrt(df$CESDT1),na.rm=T))
 plot(density(sqrt(df$CESDT2),na.rm=T))
@@ -149,21 +170,40 @@ plot(density(sqrt(df$CESDT5),na.rm=T))
 plot(density(sqrt(df$CESDT6),na.rm=T))
 ```
 
-On crée donc une variable `{r}LOGCESDT` (on ajoute 1 pour permettre que la fonction log soit définie sur toutes les valeurs) et notre variable delai:
+On mesure également les statistiques de test de Kolmogorov-Smirnov pour les valeurs mesurées et leur transformation.
+
+```{r}
+ksfun = function(label,x){
+  resp = c(label,
+           round(ks.test(x,pnorm)$statistic,2),
+           round(ks.test(sqrt(x),pnorm)$statistic,2),
+           round(ks.test(log(x+1),pnorm)$statistic,2))
+  names(resp) = c("Visite","Variable brute","Quadratique","Log")
+  return(resp)
+}
+  
+kmtable = data.frame(ksfun("Visite initiale",df$CESDT0),
+                     ksfun("Visite 1",df$CESDT1),
+                     ksfun("Visite 2",df$CESDT2),
+                     ksfun("Visite 4",df$CESDT4),
+                     ksfun("Visite 5",df$CESDT5),
+                     ksfun("Visite 6",df$CESDT6))
+kableExtra::kable(kmtable)
+```
+
+La meilleure statistique du test de Kolmogorov-Smirnov pour la transformation logarithmique corrobore sa meilleure adéquation. On crée donc une variable `{r}LOGCESDT` (on ajoute 1 pour permettre que la fonction log soit définie sur toutes les valeurs), et une variable {r}DELAI`
 
 ```{r}
 shatter$LOGCESDT = log(shatter$CESDTVISITE+1)
-shatter$SQRTCESDT = sqrt(shatter$CESDTVISITE)
 shatter$DELAI = shatter$AGEVISITE-shatter$AGE0
 ```
 
-
-### Présentation du modèle
+### Présentation du modèle de régression
 
 On propose le modèle suivant :
 
 $$
-Y_{ij} = (\beta_{0}+\alpha_{0i}+\beta_{2}^{T}X)+(\beta_{1}+\alpha_{1i}+\beta_{3}^{T}X)t_{ij}+\epsilon
+Y_{ij} = (\beta_{0}+\alpha_{0i}+\beta_{2}^{T}X_{ij})+(\beta_{1}+\alpha_{1i}+\beta_{3}^{T}X_{ij})t_{ij}+\epsilon_{ij}
 $$
 
 avec :
@@ -173,259 +213,381 @@ $$
 et
 
 $$
-\epsilon \sim \mathcal{N}(0,\sigma_{e}^{2})
+\epsilon_{ij} \sim \mathcal{N}(0,\sigma_{e}^{2})
 $$
 
 ### Modèle univarié
 
-On compare le modèle log au modèle SQRTCESDT :
+##### Pertinence des effets aléatoires
 
 ```{r}
-modelLogUni = lme(LOGCESDT ~ DELAI,
-                  random = ~ DELAI | ID,
-                  data=shatter,
-                  method="ML",
-                  na.action=na.omit)
-
-summary(modelLogUni)
-```
-
-```{r}
-modelSqrtUni = lme(SQRTCESDT ~ DELAI,
-                   random = ~ DELAI | ID,
-                   data=shatter,
-                   method="ML",
-                   na.action=na.omit)
-summary(modelSqrtUni)
-
-AIC(modelLogUni)
-AIC(modelSqrtUni)
-```
-On note que l'AIC du modèle log univarié est inférieur au modèle SQRT univarié.
-
-### Modèle multivarié SOM
-
-#### Modèle vide avec effets aléatoires sur l'intercept 
-
-```{r}
+#Modèle vide avec effet aléatoire uniquement sur l'intercept
 model_interc = lme(fixed = LOGCESDT ~ DELAI,
             data = shatter,
             random = ~ 1 | ID,
             method="ML",
             na.action=na.omit)
-summary(model_interc)
-```
 
-#### modèle vide avec effets aléatoires sur intercept et pente
-
-```{r}
 model_int_pente = lme(fixed = LOGCESDT ~ DELAI,
             data = shatter,
             random = ~ DELAI | ID,
             method="ML",
             na.action=na.omit)
-summary(model_int_pente)
-```
 
-### test pente aléatoire pertinente?
-
-```{r}
-devm1m2 <- 2*logLik(model_int_pente) - 2*logLik(model_interc)
-pm1m2 <- 0.5*(1-pchisq(devm1m2,df=2)) + 0.5*(1-pchisq(devm1m2,df=1))
+#Comparaison des deux modèles
+devm1m2 = 2*logLik(model_int_pente) - 2*logLik(model_interc)
+devm1m2
+pm1m2 = 0.5*(1-pchisq(devm1m2,df=2)) + 0.5*(1-pchisq(devm1m2,df=1))
 pm1m2
 ```
 
-#oui garder les 2
+Le test est manifestement significatif. L'ajout d'un effet aléatoire sur la pente améliore significativement le modèle.
 
-### tester si intercept et pente aléatoires indépendants
+
+##### Pertinence de l'indépendance des effets aléatoires
+
+***A vérifier***
 
 ```{r}
-m1indep <- lme(fixed = LOGCESDT ~ DELAI,
-            data = shatter,
-        random = list(~ 1 |ID, ~-1 + DELAI|ID) ,method="ML",na.action=na.omit )
+m1indep = lme(fixed = LOGCESDT ~ DELAI,
+              data = shatter,
+              random = list(~ 1 |ID, ~-1 + DELAI|ID),
+              method="ML",
+              na.action=na.omit)
 
-summary(m1indep)
-
-c(AIC(m1indep), AIC(model_int_pente))
-
-devm1indep <- 2*logLik(model_int_pente) - 2*logLik(m1indep)
-p <- 1-pchisq(devm1indep ,df=1)
+devm1indep = 2*logLik(model_int_pente) - 2*logLik(m1indep)
+p = 1-pchisq(devm1indep ,df=1)
 p
 ```
-#### pour moi la pente et l'intercept aléatoires ne sont pas indépendants mais à checker
-  
-#### Modèle SOM (log)
+
+#### Linéarité de la relation entre variable d'intérêt et variable explictive (SOM)
 
 ```{r}
-model = lme(fixed = LOGCESDT ~ DELAI*(SOM +factor(CENTRE) +ETUDE_CLAS0+SEXE +ANTIDEP0+AGE0),
-            data = shatter,
-            random = ~ 1 + DELAI | ID,
-            method="ML",
-            na.action=na.omit)
+#Estimation de l'effet du gain d'un point au score SOM sur l'évolution du score
+#CESDT au cours du temps
+model_univ = lme(fixed = LOGCESDT ~ SOM*DELAI,
+                 data = shatter,
+                 random = ~DELAI|ID,
+                 method = "ML",
+                 na.action = na.omit)
+
+model_univ$coefficients$fixed[2]
+
+#Estimation de l'évolution du score CESDT au cours du temps pour les sujets avec
+# un score SOM de 0 à 7 :
+coefSom = function(som){
+  model = lme(fixed = LOGCESDT ~ DELAI,
+                 data = shatter[shatter$SOM==som,],
+                 random = ~DELAI|ID,
+                 method = "ML",
+                 na.action = na.omit)
+
+  return(model$coefficients$fixed[2])
+}
+
+xlinsom = c()
+ylinsom = c()
+
+for(i in 0:7){
+  xlinsom=append(xlinsom,i)
+  ylinsom=append(ylinsom,coefSom(i))
+}
+
+#On présente l'estimation de l'effet du score SOM sur l'évolution au cours du temps
+#du score CESDT
+plot(xlinsom,ylinsom,
+     main = "effet du score SOM sur l'évolution du score CESDT au cours du temps, observé vs. prédit",
+     xlab = "Score SOM",
+     ylab = "Effet d'une unité de temps sur le score CESDT")
+
+#Sous l'hypothèse linéaire, l'effet du score SOM sur l'évolution au cours du temps
+# est linéaire.
+# On peut donc présenter l'hypothèse de linéarité par une droite, dont l'ordonnée
+# est l'estimation de l'évolution du CESDT au cours du temps pour les SOM=0,
+# et dont la pente est l'effet du gain d'un point SOM sur l'évolution au cours du temps
+
+# A vérifier ++++
+
+abline(a=model_univ$coefficients$fixed[3],
+       b=model_univ$coefficients$fixed[4])
+```
+
+
+On observe que l'hypothèse linéaire n'est pas acceptable. Le profil de la courbe est estimé par un modèle polynomial de degré trois :
+
+```{r}
+shatter$SOM2 = shatter$SOM^2
+shatter$SOM3 = shatter$SOM^3
+model_p3 = lme(fixed = LOGCESDT ~ DELAI*(SOM + SOM2 + SOM3),
+                 data = shatter,
+                 random = ~DELAI|ID,
+                 method = "ML",
+                 na.action = na.omit)
+
+model_p3$coefficients$fixed
+
+plot(xlinsom,ylinsom,
+     main = "effet du score SOM sur l'évolution du score CESDT au cours du temps, observé vs. prédit",
+     xlab = "Score SOM",
+     ylab = "Effet d'une unité de temps sur le score CESDT")
+
+yfit=c()
+for(x in 0:7){
+  yfit = append(yfit,model_p3$coefficients$fixed[2] 
+                + x*model_p3$coefficients$fixed[6]
+                + x^2*model_p3$coefficients$fixed[7]
+                + x^3*model_p3$coefficients$fixed[8])
+}
+
+c(AIC(model_univ),AIC(model_p3))
+
+plot(xlinsom,ylinsom,
+     main = "effet du score SOM sur l'évolution du score CESDT au cours du temps, observé vs. prédit",
+     xlab = "Score SOM",
+     ylab = "Effet d'une unité de temps sur le score CESDT")
+abline(a=model_univ$coefficients$fixed[3],
+       b=model_univ$coefficients$fixed[4],
+       col="darkblue")
+lines(xlinsom,yfit,col="darkred")
+
+```
+
+
+```{r}
+# Comparaison entre le modèle linéaire et la modélisation d'interaction
+model_pol = lme(fixed = LOGCESDT ~ DELAI*(factor(CENTRE)
+                                          + ETUDE_CLAS0
+                                          + SEXE
+                                          + ANTIDEP0
+                                          + AGE0
+                                          + SOM
+                                          + SOM2
+                                          + SOM3),
+                  data = shatter,
+                  random = ~ 1 + DELAI | ID,
+                  method="ML",
+                  na.action=na.omit)
+
+model_lin = lme(fixed = LOGCESDT ~ DELAI*(factor(CENTRE)
+                                          + ETUDE_CLAS0
+                                          + SEXE
+                                          + ANTIDEP0
+                                          + AGE0
+                                          + SOM),
+                  data = shatter,
+                  random = ~ 1 + DELAI | ID,
+                  method="ML",
+                  na.action=na.omit)
+
+model_spline = lme(fixed = LOGCESDT ~ DELAI*(factor(CENTRE)
+                                          + ETUDE_CLAS0
+                                          + SEXE
+                                          + ANTIDEP0
+                                          + AGE0
+                                          + bs(SOM,df=3)),
+                  data = shatter,
+                  random = ~ 1 + DELAI | ID,
+                  method="ML",
+                  na.action=na.omit)
+
+#Comparaison des modèles
+c(AIC(model_lin),
+  AIC(model_pol),
+  AIC(model_spline))
+
+dev = 2*logLik(model_pol) - 2*logLik(model_lin)
+p = 1-pchisq(devm1indep ,df=4) #4 ddl car 2 sur l'interaction avec temps et 2 sur l'ordonnée à l'origine
+p
+```
+
+On privilégie donc une interaction cubique.
+
+#### Sélection des variables
+
+L'ensemble des variables est conservé car facteurs de confusions connus.
+```{r}
+#On retient le modèle cubique comme modèle final
+model = model_pol
 summary(model)
-AIC(model)
 ```
 
-#### Modèle SOM (sqrt)
+#### Interprétation des coefficients
 
-```{r}
-model_sq = lme(fixed = SQRTCESDT ~ DELAI*(SOM +CENTRE +ETUDE_CLAS0+SEXE +ANTIDEP0),
-            data = shatter,
-            random = ~ 1+DELAI | ID,
-            method="ML",
-            na.action=na.omit)
-summary(model_sq)
-AIC(model_sq)
-```
+On a 
 
+$$
+\mathbb{E}(\ln{Y_{ij}}|\alpha_{i})=(\beta_{0}+\alpha_{0i}+\beta_{0X}X)+(\beta_{1}+\alpha_{1i}+\beta_{1X}X)t_{ij}
+$$  
 
-####### on garde le modèle avec le log car AIC inférieure
+***A terminer***
 
 #### Adéquation du modèle
 ```{r}
 # plot résidus standardiés 
-plot (model)
-{
+plot(model)
+ 
 par(mfrow=c(1,2))
 plot(density(model$coefficients$random$ID[,1],xlab="intercept",main="predicted random intercept"))
 plot(density(model$coefficients$random$ID[,2],xlab="pente",main="predicted random slope"))
+```
+
+
+
+## Modèle avec SCORE
+
+
+```{r}
+#Estimation de l'effet du gain d'un point au score SOM sur l'évolution du score
+#CESDT au cours du temps
+model_univ = lme(fixed = LOGCESDT ~ SCORE*DELAI,
+                 data = shatter,
+                 random = ~DELAI|ID,
+                 method = "ML",
+                 na.action = na.omit)
+
+model_univ$coefficients$fixed[2]
+
+#Estimation de l'évolution du score CESDT au cours du temps pour les sujets avec
+# un score de 0 à 14 :
+# Nb : pas de convergence pour ML avec le score 2, donc on estime par REML :
+coefSom2 = function(score){
+  if(score ==2){
+    model = lme(fixed = LOGCESDT ~ DELAI,
+                 data = shatter[shatter$SCORE==score,],
+                 random = ~DELAI|ID,
+                 method = "REML",
+                 na.action = na.omit)
+  } else{
+    model = lme(fixed = LOGCESDT ~ DELAI,
+                 data = shatter[shatter$SCORE==score,],
+                 random = ~DELAI|ID,
+                 method = "ML",
+                 na.action = na.omit)
+  }
+
+  return(model$coefficients$fixed[2])
 }
+
+xlinsom = c()
+ylinsom = c()
+
+#NB : pas de convergence du modèle pour SCORE = 2
+for(i in c(1:14)){
+  xlinsom=append(xlinsom,i)
+  ylinsom=append(ylinsom,coefSom2(i))
+}
+
+#On présente l'estimation de l'effet du score SOM sur l'évolution au cours du temps
+#du score CESDT
+plot(xlinsom,ylinsom,
+     main = "effet du score sur l'évolution du score CESDT au cours du temps, observé vs. prédit",
+     xlab = "Score",
+     ylab = "Effet d'une unité de temps sur le score CESDT")
+
+#Sous l'hypothèse linéaire, l'effet du score sur l'évolution au cours du temps
+# est linéaire.
+# On peut donc présenter l'hypothèse de linéarité par une droite, dont l'ordonnée
+# est l'estimation de l'évolution du CESDT au cours du temps pour les SOM=0,
+# et dont la pente est l'effet du gain d'un point SOM sur l'évolution au cours du temps
+
+
+abline(a=model_univ$coefficients$fixed[3],
+       b=model_univ$coefficients$fixed[4])
 ```
+L'hypothèse d'un effet linéaire du score cardiovasculaire sur l'évolution du score CESDT au cours du temps ne peut là encore pas être retenue.
 
+Pour modéliser l'interaction entre le score cardiovasculaire et le temps, on veut comparer trois approches :
+- une régression avec b-splines avec noeuds déterminés graphiquement,
+- une régression avec b-splines avec noeuds déterminés aux quartiles,
+- une régression polynomiale cubique
 
-
-## Modèle avec SCORE: 
-
-## En univarié : inutile ?
+Il faut mettre en balance l'adéquation aux observations, contre l'inflation du nombre de paramètres du modèle. On compare les trois modèles par le critère AIC (une comparaison par le BIC aurait été plus conservatrice, et aurait donné les mêmes conclusions)
 
 ```{r}
-model2 <- lme(LOGCESDT ~ DELAI + SCORE,
-    random = ~ DELAI | ID,
-    data=shatter,
-    method="ML",
-    na.action=na.omit)
-summary(model2)
-model22 <- lme(LOGCESDT ~ DELAI*SCORE,
-    random = ~ DELAI | ID,
-    data=shatter,
-    method="ML",
-    na.action=na.omit)
-summary(model22)
+
+predeffect2 = lm(formula=ylinsom~bs(xlinsom,knots = c(2,8,13),df=3))
+predeffect3 = lm(formula=ylinsom~bs(xlinsom,knots = c(7,8,9),df=3))
+predeffect4 = lm(formula=ylinsom~xlinsom + I(xlinsom^2) + I(xlinsom^3))
+
+predicted2 = predict(predeffect2,newdata=as.list(xlinsom),se=T)
+predicted3 = predict(predeffect3,newdata=as.list(xlinsom),se=T)
+predicted4 = predict(predeffect4,newdata=as.list(xlinsom),se=T)
+
+plot(xlinsom,ylinsom,
+     main = "effet du score sur l'évolution du score CESDT au cours du temps, observé vs. prédit",
+     xlab = "Score",
+     ylab = "Effet d'une unité de temps sur le score CESDT")
+lines(xlinsom,predicted2$fit, col="darkblue")
+lines(xlinsom,predicted3$fit, col="darkred")
+lines(xlinsom,predicted4$fit, col="darkgreen")
+legend("topright",
+       legend=c("B-splines (quantiles)",
+                "B-splines (méthode graphique)",
+                "Régression polynomiale"),
+       lty = 1,
+       col = c("darkred",
+               "darkblue",
+               "darkgreen"))
 ```
 
 ```{r}
-model3 <- lme(LOGCESDT ~ DELAI + SEXE,
-    random = ~ DELAI | ID,
-    data=shatter,
-    method="ML",
-    na.action=na.omit)
-summary(model3)
-model33 <- lme(LOGCESDT ~ DELAI*SEXE,
-    random = ~ DELAI | ID,
-    data=shatter,
-    method="ML",
-    na.action=na.omit)
-summary(model33)
+shatter$SCORE2 = shatter$SCORE^2
+shatter$SCORE3 = shatter$SCORE^3
+
+model2 = lme(fixed = LOGCESDT ~ DELAI*(factor(CENTRE)
+                                          + ETUDE_CLAS0
+                                          + SEXE
+                                          + ANTIDEP0
+                                          + AGE0
+                                          + bs(SCORE,knots=c(2,8,13),df=3)),
+                  data = shatter,
+                  random = ~ 1 + DELAI | ID,
+                  method="ML",
+                  na.action=na.omit)
+
+model3 = lme(fixed = LOGCESDT ~ DELAI*(factor(CENTRE)
+                                          + ETUDE_CLAS0
+                                          + SEXE
+                                          + ANTIDEP0
+                                          + AGE0
+                                          + bs(SCORE,knots=c(7,8,9),df=3)),
+                  data = shatter,
+                  random = ~ 1 + DELAI | ID,
+                  method="ML",
+                  na.action=na.omit)
+
+model4 = lme(fixed = LOGCESDT ~ DELAI*(factor(CENTRE)
+                                          + ETUDE_CLAS0
+                                          + SEXE
+                                          + ANTIDEP0
+                                          + AGE0
+                                          + SCORE
+                                          + SCORE2
+                                          + SCORE3),
+                  data = shatter,
+                  random = ~ 1 + DELAI | ID,
+                  method="ML",
+                  na.action=na.omit)
+
+c(AIC(model2),
+  AIC(model3),
+  AIC(model4))
 ```
 
+L'augmentation du nombre de paramètres par la régression par splines n'est pas compensée par l'amélioration de la log-vraisemblance. On conserve donc la régression polynomiale.
+
+#### Interprétation des coefficients du modèle
+
 ```{r}
-model4 <- lme(LOGCESDT ~ DELAI + factor(CENTRE),
-    random = ~ DELAI | ID,
-    data=shatter,
-    method="ML",
-    na.action=na.omit)
 summary(model4)
-model44 <- lme(LOGCESDT ~ DELAI*factor(CENTRE),
-    random = ~ DELAI | ID,
-    data=shatter,
-    method="ML",
-    na.action=na.omit)
-summary(model44)
 ```
 
-```{r}
-model5 <- lme(LOGCESDT ~ DELAI + ANTIDEP0,
-    random = ~ DELAI | ID,
-    data=shatter,
-    method="ML",
-    na.action=na.omit)
-summary(model5)
-model55 <- lme(LOGCESDT ~ DELAI*ANTIDEP0,
-    random = ~ DELAI | ID,
-    data=shatter,
-    method="ML",
-    na.action=na.omit)
-summary(model55)
-```
+#### Adéquation du modèle
 
 ```{r}
-model6 <- lme(LOGCESDT ~ DELAI + factor(ETUDE_CLAS0),
-    random = ~ DELAI | ID,
-    data=shatter,
-    method="ML",
-    na.action=na.omit)
-summary(model6)
-model66 <- lme(LOGCESDT ~ DELAI*factor(ETUDE_CLAS0),
-    random = ~ DELAI | ID,
-    data=shatter,
-    method="ML",
-    na.action=na.omit)
-summary(model66)
-```
+plot(model4)
 
-```{r}
-model7 <- lme(LOGCESDT ~ DELAI + AGE0,
-    random = ~ DELAI | ID,
-    data=shatter,
-    method="ML",
-    na.action=na.omit)
-summary(model7)
-model77 <- lme(LOGCESDT ~ DELAI*AGE0,
-    random = ~ DELAI | ID,
-    data=shatter,
-    method="ML",
-    na.action=na.omit)
-summary(model77)
-```
-
-## MODÈLE COMPLET : 
-```{r}
-model8 <- lme(LOGCESDT ~ DELAI* (SCORE + SEXE + factor(ETUDE_CLAS0) + ANTIDEP0 + AGE0 + factor(CENTRE)),
-    random = ~ DELAI | ID,
-    data=shatter,
-    method="ML",
-    na.action=na.omit)
-summary(model8)
-```
-
-##Regarder les p values globales pour les variables quali à plus de 2 modalités :
-##Modèle sans factor(ETUDE_CLAS0): 
-```{r}
-model9 <- lme(LOGCESDT ~ DELAI* (SCORE + SEXE + ANTIDEP0 + factor(CENTRE) + AGE0),
-    random = ~ DELAI | ID,
-    data=shatter,
-    method="ML",
-    na.action=na.omit)
-summary(model9)
-```
-```{r}
-anova(model8,model9)
-```
-
-##Modèle sans "factor(CENTRE)":
-```{r}
-model10 <- lme(LOGCESDT ~ DELAI* (SCORE + SEXE + ANTIDEP0 + factor(ETUDE_CLAS0) + AGE0),
-    random = ~ DELAI | ID,
-    data=shatter,
-    method="ML",
-    na.action=na.omit)
-summary(model10)
-```
-```{r}
-anova(model8,model10)
-```
-
-##Evaluation du fit du modèle: 
-```{r}
-plot(model8)
+par(mfrow=c(1,2))
+plot(density(model4$coefficients$random$ID[,1],xlab="intercept",main="predicted random intercept"))
+plot(density(model4$coefficients$random$ID[,2],xlab="pente",main="predicted random slope"))
 ```
