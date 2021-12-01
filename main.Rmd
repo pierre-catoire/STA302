@@ -548,7 +548,7 @@ model_lin = lme(fixed = LOGCESDT ~ DELAI*(factor(CENTRE)
                                           + ETUDE_CLAS0
                                           + SEXE
                                           + ANTIDEP0
-                                          + AGE0
+                                          + AGECENTER
                                           + SOM),
                   data = shatter,
                   random = ~ 1 + DELAI | ID,
@@ -558,7 +558,7 @@ model_spline = lme(fixed = LOGCESDT ~ DELAI*(factor(CENTRE)
                                           + ETUDE_CLAS0
                                           + SEXE
                                           + ANTIDEP0
-                                          + AGE0
+                                          + AGECENTER
                                           + bs(SOM)),
                   data = shatter,
                   random = ~ 1 + DELAI | ID,
@@ -572,13 +572,12 @@ c(AIC(model_lin),
 
 # A vérifier ++
 dev = 2*logLik(model) - 2*logLik(model_lin)
-p = 1-pchisq(dev ,df=3)
+p = 1-pchisq(dev ,df=4)
 p
 
 ```
 
-
-On privilégie donc une interaction polynomiale.
+Le modèle polynomial sur SOM n'améliore pas significativement le modèle.
 
 #### Sélection des variables
 
