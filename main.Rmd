@@ -6,8 +6,10 @@ output:
   pdf_document: default
   html_document: default
 ---
-```{r}
-knitr::opts_chunk$set(echo = TRUE)
+
+
+```{r echo=FALSE}
+knitr::opts_chunk$set(echo = F)
 library(kableExtra)
 library(ggplot2)
 library(dplyr)
@@ -24,7 +26,9 @@ library(JM)
 set.seed(1)
 ```
 
-```{r}
+
+
+```{r echo=FALSE}
 #######################################################
 # Préparation de la table df (une ligne par individu) #
 #######################################################
@@ -109,22 +113,15 @@ sapply(shatter,class)
 
 ##### Caractéristiques des sujets de l'étude
 
-```{r}
+```{r echo=FALSE}
 sapply(c("factor","numeric"),
        papeR::summarise,
        data = df)
-
-sumn = papeR::summarise(data = df,type="numeric",labels = T)[c(2,3,10,11),c(1,9,10,11)]
-
-sumf = papeR::summarise(data = df,type="factor",labels = T)
-
-kable(summ)
-kable(sumf)
 ```
 
 ##### Nombre de mesures par sujet
 
-```{r}
+```{r echo=FALSE}
 ndmes = table(shatter$ID[!is.na(shatter$CESDTVISITE)])
 table(ndmes)
 plot(table(ndmes))
@@ -134,26 +131,27 @@ plot(table(ndmes))
 
 ###### **Spaghetti plots**
 
-```{r}
+```{r echo=FALSE}
 # Pour améliorer la visibilité, on sélectionne un sous-échantillon des ID dont
 # l'ID est multiple de 10.
 # On retrouve le nombre de sujets par :
-shatter[shatter$ID%%10==0,]$ID %>% unique %>% length
-color <- shatter$ID
+shatter[shatter$ID%%50==0,]$ID %>% unique %>% length
+color <- shatter$ID%%5
 xyplot(CESDTVISITE ~ AGEVISITE-AGE0,
        group=ID,
-       data=shatter[shatter$ID%%10==0,],
+       data=shatter[shatter$ID%%50==0,],
        col=color,
        lwd=1,
        type = 'l',bty="n",
        xlab = "Délai depuis l'entrée",
        ylab = "Score CESD",
-       main = "Trajectoire du score CESDT par individu (sous-échantillon de 662 sujets")
+       main = "Trajectoire du score CESDT par individu (sous-échantillon de 130 sujets")
 ```
 
 ### Vérification de la normalité de la distribution de la variable d'intérêt
 
-```{r}
+
+```{r echo=FALSE}
 par(mfrow=c(2,3))
 hist(df$CESDT0,na.rm=T)
 hist(df$CESDT1,na.rm=T)
@@ -165,7 +163,9 @@ hist(df$CESDT6,na.rm=T)
 
 On constate que la distribution de la variable n'est pas normale. On propose deux transformations : logarithmique et quadratique
 
-```{r}
+
+
+```{r echo=FALSE}
 #Transformation en log
 par(mfrow=c(2,3))
 hist(log(df$CESDT0+1),na.rm=T)
@@ -184,20 +184,26 @@ hist(sqrt(df$CESDT6),na.rm=T)
 ```
 
 
-```{r}
+
+```{r echo=FALSE}
 shatter$LOGCESDT = log(shatter$CESDTVISITE+1)
 shatter$DELAI = shatter$AGEVISITE-shatter$AGE0
+shatter$AGECENTER = shatter$AGE0-75
 ```
 
 ### Présentation du modèle de régression
 
+
 On propose le modèle suivant :
+
 
 $$
 Y_{ij} = (\beta_{0}+\alpha_{0i}+\beta_{2}^{T}X_{ij})+(\beta_{1}+\alpha_{1i}+\beta_{3}^{T}X_{ij})t_{ij}+\epsilon_{ij}
 $$
 
 avec :
+
+
 $$
 \alpha = \begin{pmatrix}\alpha_{0i} \\ \alpha_{1i}\end{pmatrix} \sim\mathcal{N}\big( 0,\mathcal{B}\big)
 $$
@@ -207,11 +213,14 @@ $$
 \epsilon_{ij} \sim \mathcal{N}(0,\sigma_{e}^{2})
 $$
 
+
 ### Modèle univarié
 
 ##### Pertinence des effets aléatoires
 
-```{r}
+
+
+```{r echo=FALSE}
 #Modèle vide avec effet aléatoire uniquement sur l'intercept
 model_interc = lme(fixed = LOGCESDT ~ DELAI,
             data = shatter,
@@ -223,12 +232,15 @@ model_int_pente = lme(fixed = LOGCESDT ~ DELAI,
             random = ~ DELAI | ID,
             method="ML",
             na.action=na.omit)
+
 #Comparaison des deux modèles
 devm1m2 = 2*logLik(model_int_pente) - 2*logLik(model_interc)
 devm1m2
 pm1m2 = 0.5*(1-pchisq(devm1m2,df=2)) + 0.5*(1-pchisq(devm1m2,df=1))
 pm1m2
 ```
+
+
 
 Le test est manifestement significatif. L'ajout d'un effet aléatoire sur la pente améliore significativement le modèle.
 
@@ -237,11 +249,12 @@ Le test est manifestement significatif. L'ajout d'un effet aléatoire sur la pen
 
 ***A vérifier***
 
+
 $$
 P(\alpha_{0i}|\alpha_{1i})=P(\alpha_{0i})
 $$
 
-```{r}
+```{r echo=FALSE}
 m1indep = lme(fixed = LOGCESDT ~ DELAI,
               data = shatter,
               random = list(~ 1 |ID, ~-1 + DELAI|ID),
@@ -252,41 +265,29 @@ p = 1-pchisq(devm1indep ,df=1)
 p
 ```
 
+
+
 #### Linéarité de la relation entre variable d'intérêt et variable explictive (SOM)
 
-```{r}
+
+
+```{r echo=FALSE}
 #A faire sur l'intercept
 
 #Estimation de l'effet du gain d'un point au score SOM sur l'évolution du score
 #CESDT au cours du temps
-model_univ = lme(fixed = LOGCESDT ~ factor(SOM)*DELAI,
+
+xsom = 0:7
+model_univ_factor = lme(fixed = LOGCESDT ~ factor(SOM)*DELAI,
                  data = shatter,
                  random = ~DELAI|ID,
                  method = "ML",
                  na.action = na.omit)
-model_univ$coefficients$fixed
 
-ylinsom = c(0,model_univ$coefficients$fixed[2:8])
-#Estimation de l'évolution du score CESDT au cours du temps pour les sujets avec
-# un score SOM de 0 à 7 :
-coefSom = function(som){
-  model = lme(fixed = LOGCESDT ~ DELAI,
-                 data = shatter[shatter$SOM==som,],
-                 random = ~DELAI|ID,
-                 method = "ML",
-                 na.action = na.omit)
-  return(model$coefficients$fixed[2])
-}
-xlinsom = 0:7
-#On présente l'estimation de l'effet du score SOM sur l'évolution au cours du temps
-#du score CESDT
-
-#Sous l'hypothèse linéaire, l'effet du score SOM sur l'évolution au cours du temps
-# est linéaire.
-# On peut donc présenter l'hypothèse de linéarité par une droite, dont l'ordonnée
-# est l'estimation de l'évolution du CESDT au cours du temps pour les SOM=0,
-# et dont la pente est l'effet du gain d'un point SOM sur l'évolution au cours du temps
-# A vérifier ++++
+yinterceptobs = c(0,model_univ_factor$coefficients$fixed[2:8])+model_univ_factor$coefficients$fixed[1]
+  
+yslopeobs = c(0+model_univ_factor$coefficients$fixed[9],
+            model_univ_factor$coefficients$fixed[10:16]+model_univ_factor$coefficients$fixed[9])
 
 model_univ_lin = lme(fixed = LOGCESDT ~ SOM*DELAI,
                  data = shatter,
@@ -294,11 +295,18 @@ model_univ_lin = lme(fixed = LOGCESDT ~ SOM*DELAI,
                  method = "ML",
                  na.action = na.omit)
 
-plot(xlinsom,ylinsom,
+par(mfrow=c(1,2))
+plot(xsom,yinterceptobs,
      main = "effet du score SOM sur l'évolution du score CESDT au cours du temps, observé vs. prédit",
      xlab = "Score SOM",
      ylab = "Effet d'une unité de temps sur le score CESDT")
 
+abline(a=model_univ_lin$coefficients$fixed[1],
+       b=model_univ_lin$coefficients$fixed[2])
+
+plot(xsom,yslopeobs,
+     xlab = "Score SOM",
+     ylab = "Effet d'une unité de temps sur le score CESDT")
 abline(a=model_univ_lin$coefficients$fixed[3],
        b=model_univ_lin$coefficients$fixed[4])
 ```
@@ -306,36 +314,223 @@ abline(a=model_univ_lin$coefficients$fixed[3],
 
 On observe que l'hypothèse linéaire n'est pas acceptable. Le profil de la courbe est estimé par un modèle polynomial de degré trois :
 
-```{r}
+
+$$
+\mathbb{E}(Y_{ij}) = (\beta_{0}+\alpha_{0i}+\beta_{0SCORE}\times SCORE_{i}+\beta_{0SCORE^{2}}\times SCORE^{2}_{i}+\beta_{0SCORE^{3}}\times SCORE^{3}_{i})+\\
+(\beta_{1}+\alpha_{1i}+\beta_{1SCORE}\times SCORE_{ij}+\beta_{1SCORE^{2}}\times SCORE^{2}_{i}+\beta_{1SCORE^{3}}\times SCORE^{3}_{i}) \times t_{ij}
+$$
+
+Pour ajouter les intervalles de confiances, on considère que si l'estimateur global de la pente au cours du temps est :
+
+
+
+$$
+\hat{\beta} = \hat{\beta}_{1} + SOM\hat{\beta}_{1SOM}+ SOM^2\hat{\beta}_{1SOM^2}+ SOM^3\hat{\beta}_{1SOM^3}
+$$
+
+alors
+
+
+$$
+\mathbb{V}(\hat{\beta}) = \mathbb{V}(\hat{\beta}_{1} + SOM\hat{\beta}_{1SOM}+ SOM^2\hat{\beta}_{1SOM^2}+ SOM^3\hat{\beta}_{1SOM^3}) \\
+= \mathbb{V}(\hat{\beta}_{1}) \\
++ 2\times SOM cov(\hat{\beta}_{1},\hat{\beta}_{1SOM}) \\
++ 2\times SOM^2 cov(\hat{\beta}_{1},\hat{\beta}_{1SOM^2}) \\
++ 2\times SOM^3 cov(\hat{\beta}_{1},\hat{\beta}_{1SOM^3}) \\
++ SOM^2\mathbb{V}(\hat{\beta}_{1SOM}) \\
++ 2\times SOM^3 cov(\hat{\beta}_{1SOM},\hat{\beta}_{1SOM^2}) \\
++ 2\times SOM^4 cov(\hat{\beta}_{1SOM},\hat{\beta}_{1SOM^3}) \\
+ + SOM^4\mathbb{V}(\hat{\beta}_{SOM^2}) \\
++ 2\times SOM^5 cov(\hat{\beta}_{1SOM^2},\hat{\beta}_{1SOM^3}) \\
++ SOM^6\mathbb{V}(\hat{\beta}_{1SOM^3})
+$$
+
+
+
+Pour le modèle linéaire, on a 
+
+
+
+$$
+\hat{\beta} = \hat{\beta}_{1} + SOM\hat{\beta}_{1SOM}
+$$
+
+et 
+
+
+$$
+\mathbb{V}(\hat{\beta}) = \mathbb{V}(\hat{\beta}_{1} + SOM\hat{\beta}_{1SOM}) = \mathbb{V}(\hat{\beta}_{1}) + SOM^2\mathbb{V}(\hat{\beta}_{1SOM})+2 \times SOM cov(\hat{\beta}_{1},\hat{\beta}_{1SOM})
+$$
+
+
+
+```{r echo=FALSE}
 model_p3 = lme(fixed = LOGCESDT ~ DELAI*(SOM + I(SOM^2) + I(SOM^3)),
-                 data = shatter[shatter$SOM < 7,],
+                 data = shatter,
                  random = ~DELAI|ID,
                  method = "ML",
                  na.action = na.omit)
-xlinsom=0:6
-ylinsom=ylinsom[1:7]
-yfit=c()
-
-for(x in 0:6){
-  yfit = append(yfit,model_p3$coefficients$fixed[2] 
-                + x*model_p3$coefficients$fixed[6]
-                + x^2*model_p3$coefficients$fixed[7]
-                + x^3*model_p3$coefficients$fixed[8])
-}
-c(AIC(model_univ),AIC(model_p3))
-plot(xlinsom,ylinsom,
-     main = "effet du score SOM sur l'évolution du score CESDT au cours du temps, observé vs. prédit",
-     xlab = "Score SOM",
-     ylab = "Effet d'une unité de temps sur le score CESDT")
-abline(a=model_univ_lin$coefficients$fixed[3],
-       b=model_univ_lin$coefficients$fixed[4],
-       col="darkblue")
-lines(xlinsom,yfit,col="darkred")
 ```
-***Changer l'analyse stratifiée en factor(), et exprimer les IC***
 
-```{r}
+
+
+```{r echo=FALSE}
+#On utilise une séquence à pas faible pour lisser les courbes
+xseq = seq(0,7,0.001)
+
+#On définit une fonction permettant d'estimer à chaque point la variance pour le modèle linéaire
+vartotlin = function(vcov,coeffs,x){
+  resp = vcov[coeffs[1],coeffs[1]] +
+        x^2*vcov[coeffs[2],coeffs[2]] +
+        x*vcov[coeffs[1],coeffs[2]]
+  return(resp)
+}
+
+#On extrait les valeurs de l'estimation du modèle linéaire et les bornes de l'intervalle de confiance pour l'intercept
+yintlinfit = c()
+yintlinfit_bs = c()
+yintlinfit_bi = c()
+
+for(x in xseq){
+  fit = model_univ_lin$coefficients$fixed[1]+x*model_univ_lin$coefficients$fixed[2]
+  bs = fit+qnorm(0.975)*sqrt(vartotlin(model_univ_lin$varFix,c(1,2),x))
+  bi = fit-qnorm(0.975)*sqrt(vartotlin(model_univ_lin$varFix,c(1,2),x))
+  
+  yintlinfit = yintlinfit %>% append(fit)
+  yintlinfit_bs = yintlinfit_bs %>% append(bs)
+  yintlinfit_bi = yintlinfit_bi %>% append(bi)
+}
+
+#On extrait les valeurs de l'estimation du modèle linéaire et les bornes de l'intervalle de confiance pour la pente
+yslopelinfit = c()
+yslopelinfit_bs = c()
+yslopelinfit_bi = c()
+
+for(x in xseq){
+  fit = model_univ_lin$coefficients$fixed[3]+x*model_univ_lin$coefficients$fixed[4]
+  bs = fit+qnorm(0.975)*sqrt(vartotlin(model_univ_lin$varFix,c(3,4),x))
+  bi = fit-qnorm(0.975)*sqrt(vartotlin(model_univ_lin$varFix,c(3,4),x))
+  
+  yslopelinfit = yslopelinfit %>% append(fit)
+  yslopelinfit_bs = yslopelinfit_bs %>% append(bs)
+  yslopelinfit_bi = yslopelinfit_bi %>% append(bi)
+}
+
+#Création d'une fonction permettant d'estimer la variance pour chaque point pour le modèle polynomial
+vartot = function(vcov,coeffs,x){
+  resp= vcov[coeffs[1],coeffs[1]] +
+    2*x*vcov[coeffs[1],coeffs[2]] +
+    2*x^2*vcov[coeffs[1],coeffs[3]] +
+    2*x^3*vcov[coeffs[1],coeffs[4]] +
+    x^2*vcov[coeffs[2],coeffs[2]] +
+    2*x^3*vcov[coeffs[2],coeffs[3]] +
+    2*x^4*vcov[coeffs[2],coeffs[4]] +
+    x^4*vcov[coeffs[3],coeffs[3]] +
+    2*x^5*vcov[coeffs[3],coeffs[4]] +
+    x^6*vcov[coeffs[4],coeffs[4]]
+  
+  return(resp)
+}
+
+#On extrait les valeurs de l'estimation du modèle polynomial et les bornes de l'intervalle de confiance pour l'intercept
+yintpolfit = c()
+yintpolfit_bs = c()
+yintpolfit_bi = c()
+
+for(x in xseq){
+  fit = model_p3$coefficients$fixed[1] +
+        x*model_p3$coefficients$fixed[3] +
+        x^2*model_p3$coefficients$fixed[4] +
+        x^3*model_p3$coefficients$fixed[5]
+  bs = fit+qnorm(0.975)*sqrt(vartot(model_p3$varFix,c(1,3,4,5),x))
+  bi = fit-qnorm(0.975)*sqrt(vartot(model_p3$varFix,c(1,3,4,5),x))
+  yintpolfit = yintpolfit %>% append(fit)
+  yintpolfit_bs = yintpolfit_bs %>% append(bs)
+  yintpolfit_bi = yintpolfit_bi %>% append(bi)
+}
+
+#On extrait les valeurs de l'estimation du modèle polynomial et les bornes de l'intervalle de confiance pour la pente
+yslopepolfit = c()
+yslopepolfit_bs = c()
+yslopepolfit_bi = c()
+
+for(x in xseq){
+  fit = model_p3$coefficients$fixed[2] +
+        x*model_p3$coefficients$fixed[6] +
+        x^2*model_p3$coefficients$fixed[7] +
+        x^3*model_p3$coefficients$fixed[8]
+  bs = fit+qnorm(0.975)*sqrt(vartot(model_p3$varFix,c(2,6,7,8),x))
+  bi = fit-qnorm(0.975)*sqrt(vartot(model_p3$varFix,c(2,6,7,8),x))
+  yslopepolfit = yslopepolfit %>% append(fit)
+  yslopepolfit_bs = yslopepolfit_bs %>% append(bs)
+  yslopepolfit_bi = yslopepolfit_bi %>% append(bi)
+}
+```
+
+
+
+```{r echo=FALSE}
+#Création du graphique
+#Ajout de la légende
+
+
+#Graphique des points observés selon le modèle factor
+par(mfrow=c(1,2),
+    oma = c(3, 0, 0.5, 0))
+
+#Intercept
+plot(xsom,yinterceptobs,
+     xlab = "Score SOM",
+     ylab = "Score CESDT initial",
+     ylim = c(1.4,2.8))
+
+#Ajout du modèle linéaire et de son intervalle de confiance
+lines(xseq,yintlinfit,col="darkblue")
+color_blue = rgb(0, 0, 139, max = 255, alpha = 30)
+polygon(c(xseq,rev(xseq)), c(yintlinfit_bs, rev(yintlinfit_bi)),
+        col = color_blue,border = NA)
+
+#Ajout du modèle polynomial et de son intervalle de confiance
+lines(xseq,yintpolfit,col="darkred")
+color_red = rgb(139, 0, 0, max = 255, alpha = 30)
+polygon(c(xseq,rev(xseq)), c(yintpolfit_bs, rev(yintpolfit_bi)),
+        col = color_red,border = NA)
+
+#Pente
+plot(xsom,yslopeobs,
+     xlab = "Score SOM",
+     ylab = "Effet d'une unité de temps sur le score CESDT",
+     ylim = c(-0.12,0.06))
+
+#Ajout du modèle linéaire et de son intervalle de confiance
+lines(xseq,yslopelinfit,col="darkblue")
+color_blue = rgb(0, 0, 139, max = 255, alpha = 30)
+polygon(c(xseq,rev(xseq)), c(yslopelinfit_bs, rev(yslopelinfit_bi)),
+        col = color_blue,border = NA)
+
+#Ajout du modèle polynomial et de son intervalle de confiance
+lines(xseq,yslopepolfit,col="darkred")
+color_red = rgb(139, 0, 0, max = 255, alpha = 30)
+polygon(c(xseq,rev(xseq)), c(yslopepolfit_bs, rev(yslopepolfit_bi)),
+        col = color_red,border = NA)
+
+par(xpd=NA)
+
+legend(x=-6.5,y=-0.20,
+       legend=c("Régression linéaire",
+                "Régression polynomiale"),
+       xpd = NA,
+       lty = 1,
+       col = c("darkblue",
+               "darkred"))
+
+```
+
+
+
+```{r echo=FALSE}
 # Comparaison entre le modèle linéaire et la modélisation d'interaction
+
 model = lme(fixed = LOGCESDT ~ DELAI*(factor(CENTRE)
                                           + ETUDE_CLAS0
                                           + SEXE
@@ -379,21 +574,25 @@ c(AIC(model_lin),
 dev = 2*logLik(model) - 2*logLik(model_lin)
 p = 1-pchisq(dev ,df=3)
 p
+
 ```
+
 
 On privilégie donc une interaction polynomiale.
 
 #### Sélection des variables
 
 L'ensemble des variables est conservé car facteurs de confusions connus.
-```{r}
+
+
+```{r echo=FALSE}
 #On retient le modèle cubique comme modèle final
 summary(model)
 ```
 
 
 #### Adéquation du modèle
-```{r}
+```{r echo=FALSE}
 # plot résidus standardiés 
 plot(model)
  
@@ -402,63 +601,12 @@ plot(density(model$coefficients$random$ID[,1],xlab="intercept",main="predicted r
 plot(density(model$coefficients$random$ID[,2],xlab="pente",main="predicted random slope"))
 ```
 
-## Modèle conjoint
-
-Pour le modèle conjoint, il faut :
-- un modèle mixte : `{r}model`
-- un modèle de survie
-
-Le modèle de survie peut s'écrire :
-
-$$
-\lambda_{t} = \lambda_{0} \times e^{\beta X}
-$$
-
-
-```{r}
-df$DELAIDEM = df$AGEDEM6-df$AGE0
-shatter$DELAIDEM = shatter$AGEDEM6-df$AGE0
-
-shatter_j = shatter[shatter$DELAIDEM>=shatter$DELAI,]
-df_j = df[df$DELAIDEM >= df$DELAI,]
-
-modelsurv = coxph(Surv(DELAIDEM, DEM0_6==1)~ SOM
-                                          + SEXE
-                                          + AGE0
-                                          + factor(CENTRE)
-                                          + factor(ETUDE_CLAS0)
-                                          + ANTIDEP0,
-                  data = df_j,
-                  x = T,
-                  model = T,
-                  na.action = na.exclude)
-
-model_j = lme(fixed = LOGCESDT ~ DELAI*(factor(CENTRE)
-                                          + ETUDE_CLAS0
-                                          + SEXE
-                                          + ANTIDEP0
-                                          + AGECENTER
-                                          + SOM
-                                          + I(SOM^2)
-                                          + I(SOM^3)),
-                  data = shatter_j,
-                  random = ~ 1 + DELAI | ID,
-                  method="ML",
-                  na.action=na.exclude)
-
-jmodel = jointModel(model_j,
-                    modelsurv,
-                    timeVar = "DELAI",
-                    verbose = T)
-summary(jmodel)
-```
-
-
 
 ## Modèle avec SCORE
 
 
-```{r}
+
+```{r echo=FALSE}
 #Estimation de l'effet du gain d'un point au score SOM sur l'évolution du score
 #CESDT au cours du temps
 
@@ -466,27 +614,19 @@ summary(jmodel)
 df$SCORE0 = df$SCORE -1
 shatter$SCORE0 = shatter$SCORE - 1
 
-model_univ = lme(fixed = LOGCESDT ~ factor(SCORE0)*DELAI,
-                 data = shatter,
-                 random = ~DELAI|ID,
-                 method = "ML",
-                 na.action = na.omit)
-model_univ$coefficients$fixed
-#Estimation de l'évolution du score CESDT au cours du temps pour les sujets avec
-# un score de 0 à 14 :
-# Nb : pas de convergence pour ML avec le score 2, donc on estime par REML :
+#Estimation d'un modèle univarié 
+model_univ_factor_score = lme(fixed = LOGCESDT ~ factor(SCORE0)*DELAI,
+                              data = shatter,
+                              random = ~DELAI|ID,
+                              method = "ML",
+                              na.action = na.omit)
 
 xlinscore = 1:14
-ylinscore = c(0,model_univ$coefficients$fixed[16:28])
+yobs_int_score = c(0,model_univ_factor_score$coefficients$fixed[2:14]) +
+                model_univ_factor_score$coefficients$fixed[1]
 
-#On présente l'estimation de l'effet du score SOM sur l'évolution au cours du temps
-#du score CESDT
-
-#Sous l'hypothèse linéaire, l'effet du score sur l'évolution au cours du temps
-# est linéaire.
-# On peut donc présenter l'hypothèse de linéarité par une droite, dont l'ordonnée
-# est l'estimation de l'évolution du CESDT au cours du temps pour les SOM=0,
-# et dont la pente est l'effet du gain d'un point SOM sur l'évolution au cours du temps
+yobs_slope_score = c(0,model_univ_factor_score$coefficients$fixed[16:28]) +
+                  model_univ_factor_score$coefficients$fixed[15]
 
 model_score_lin = lme(fixed = LOGCESDT ~ SCORE0*DELAI,
                        data = shatter,
@@ -494,158 +634,92 @@ model_score_lin = lme(fixed = LOGCESDT ~ SCORE0*DELAI,
                        method = "ML",
                        na.action = na.omit)
 
-plot(xlinscore,ylinscore,
-     main = "effet du score sur l'évolution du score CESDT au cours du temps, observé vs. prédit",
+```
+
+
+
+```{r echo=FALSE}
+#Graphique
+par(mfrow = c(1,2))
+plot(xlinscore,yobs_int_score,
+     main = "effet du score sur le CESD",
      xlab = "Score",
-     ylab = "Effet d'une unité de temps sur le score CESDT")
+     ylab = "CESD initial")
+
+abline(a=model_score_lin$coefficients$fixed[1],
+       b=model_score_lin$coefficients$fixed[2])
+
+plot(xlinscore,yobs_slope_score,
+     main = "effet du score sur le CESD",
+     xlab = "Score",
+     ylab = "Evolution annuelle du CESD")
 
 abline(a=model_score_lin$coefficients$fixed[3],
        b=model_score_lin$coefficients$fixed[4])
 ```
 
-On note que la valeur 14 semble être un outlier. Elle concerne `{r}nrow(df[df$SCORE ==14,])` sujet. On recommence les analyses en excluant cette valeur unique.
 
-```{r}
-model_score_factor = lme(fixed = LOGCESDT ~ factor(SCORE0)*DELAI,
-                 data = shatter[shatter$SCORE0 !=13,],
-                 random = ~1 + DELAI|ID,
-                 method = "ML",
-                 na.action = na.omit)
+L'hypothèse d'un effet linéaire du score cardiovasculaire sur le score CESDT initial et son évolution au cours du temps ne peut là encore pas être retenue. On propose là encore un modèle polynomial, que l'on compare à une modélisation par b-splines et à un modèle linéaire.
 
-xlinscore = 1:13
-ylinscore = c(0,model_score_factor$coefficients$fixed[15:26])
 
-model_score_lin= lme(fixed = LOGCESDT ~ SCORE0*DELAI,
-                 data = shatter[shatter$SCORE0 !=13,],
-                 random = ~1+DELAI|ID,
-                 method = "ML",
-                 na.action = na.omit)
-
-plot(xlinscore,ylinscore,
-     main = "effet du score sur l'évolution du score CESDT au cours du temps, observé vs. prédit",
-     xlab = "Score",
-     ylab = "Effet d'une unité de temps sur le score CESDT")
-
-abline(a=model_score_lin$coefficients$fixed[3],
-       b=model_score_lin$coefficients$fixed[4])
-```
-
-L'hypothèse d'un effet linéaire du score cardiovasculaire sur l'évolution du score CESDT au cours du temps ne peut là encore pas être retenue.
-
-Pour modéliser l'interaction entre le score cardiovasculaire et le temps, on propose un modèle polynomial :
-
-$$
-\mathbb{E}(Y_{ij}) = (\beta_{0}+\alpha_{0i}+\beta_{0SCORE}\times SCORE_{ij})+\\
-(\beta_{1}+\alpha_{1i}+\beta_{1SCORE}\times SCORE_{ij}+\beta_{1SCORE^{2}}\times SCORE^{2}_{ij}+\beta_{1SCORE^{3}}\times SCORE^{3}_{ij})t_{ij}
-$$
-
-```{r}
+```{r echo=FALSE}
 model_score_pol = lme(fixed = LOGCESDT ~ DELAI*(factor(CENTRE)
                                           + ETUDE_CLAS0
                                           + SEXE
                                           + ANTIDEP0
-                                          + AGE0
+                                          + AGECENTER
                                           + SCORE0
                                           + I(SCORE0^2)
                                           + I(SCORE0^3)),
-                  data = shatter[shatter$SCORE0 !=13,],
+                  data = shatter,
                   random = ~ 1 + DELAI | ID,
                   method="ML",
                   na.action=na.omit)
 
-ypred_pol = model_score_pol$coefficients$fixed[2] +
-  (xlinscore-1)*model_score_pol$coefficients$fixed[22] +
-  ((xlinscore-1)^2)*model_score_pol$coefficients$fixed[23] +
-  ((xlinscore-1)^3)*model_score_pol$coefficients$fixed[24]
-
-
-plot(1:13,ylinscore,
-     main = "effet du score sur l'évolution du score CESDT au cours du temps, observé vs. prédit",
-     xlab = "Score",
-     ylab = "Effet d'une unité de temps sur le score CESDT",
-     ylim=c(-0.12,0.12))
-
-lines(1:13,ypred_pol, col="darkred")
-
-legend("topright",
-       legend=c("Régression polynomiale"),
-       lty = 1,
-       col = c("darkred"))
-```
-
-On veut représenter l'intervalle de confiance autour des paramètres $\beta_{SCORE}$ :
-
-$$
-IC_{95\%}(\beta_{SCORE}+\beta_{SCORE^{2}}+\beta_{SCORE^{3}})=\beta_{SCORE}+\beta_{SCORE^{2}}+\beta_{SCORE^{3}} \pm U_{1-\alpha}+\sqrt{\mathbb{V}(\beta_{SCORE}+\beta_{SCORE^{2}}+\beta_{SCORE^{3}})}
-$$
-
-avec
-
-$$
-\mathbb{V}(\beta_{SCORE}+\beta_{SCORE^{2}}+\beta_{SCORE^{3}}) = \mathbb{V}(\beta_{SCORE}) + \mathbb{V}(\beta_{SCORE^{2}}) + \mathbb{V}(\beta_{SCORE^{3}}) \\+ Cov(\beta_{SCORE},\beta_{SCORE^{2}})+ Cov(\beta_{SCORE},\beta_{SCORE^{3}})+ Cov(\beta_{SCORE^{2}},\beta_{SCORE^{3}})
-$$
-
-```{r}
-ypred_pol_bi = ypred_pol-qnorm(0.975)*sqrt(model_score_pol$varFix[2,2]
-                                           + model_score_pol$varFix[22,22]
-                                           + model_score_pol$varFix[23,23]
-                                           + model_score_pol$varFix[24,24]
-                                           + 2*model_score_pol$varFix[2,22]
-                                           + 2*model_score_pol$varFix[2,23]
-                                           + 2*model_score_pol$varFix[2,24]
-                                           + 2*model_score_pol$varFix[22,23]
-                                           + 2*model_score_pol$varFix[22,24]
-                                           + 2*model_score_pol$varFix[23,24])
-
-ypred_pol_bs = ypred_pol+qnorm(0.975)*sqrt(model_score_pol$varFix[2,2]
-                                           + model_score_pol$varFix[22,22]
-                                           + model_score_pol$varFix[23,23]
-                                           + model_score_pol$varFix[24,24]
-                                           + 2*model_score_pol$varFix[2,22]
-                                           + 2*model_score_pol$varFix[2,23]
-                                           + 2*model_score_pol$varFix[2,24]
-                                           + 2*model_score_pol$varFix[22,23]
-                                           + 2*model_score_pol$varFix[22,24]
-                                           + 2*model_score_pol$varFix[23,24])
-
-plot(1:13,ylinscore,
-     main = "effet du score sur l'évolution du score CESDT au cours du temps, observé vs. prédit",
-     xlab = "Score",
-     ylab = "Effet d'une unité de temps sur le score CESDT",
-     ylim=c(-0.12,0.12))
-
-lines(1:13,ypred_pol, col="darkred")
-lines(1:13,ypred_pol_bs, col="darkred", lty=2)
-lines(1:13,ypred_pol_bi, col="darkred", lty=2)
-
-legend("topright",
-       legend=c("Régression polynomiale"),
-       lty = 1,
-       col = c("darkred"))
-```
-
-Mais ces intervalles de confiance correspondent à une variance globale, et ne représentent pas la dispersion de l'estimateur pour chaque niveau de score.
-
-+++ A REVOIR +++
-
-
-
-
-On compare le modèle polynomial avec une régression par b-splines et à un modèle linéaire
-
-```{r}
-quantile(df$SCORE0,c(0.25,0.5,0.75))
-
-model_score_bs = lme(fixed = LOGCESDT ~ DELAI*(factor(CENTRE)
+model_score_bs_1 = lme(fixed = LOGCESDT ~ DELAI*(factor(CENTRE)
                                           + ETUDE_CLAS0
                                           + SEXE
                                           + ANTIDEP0
                                           + AGE0
                                           + bs(SCORE0,knots=c(6,7,8))),
-                  data = shatter[shatter$SCORE0 !=13,],
+                  data = shatter,
                   random = ~ 1 + DELAI | ID,
                   method="ML",
                   na.action=na.omit)
+
+model_score_bs_2 = lme(fixed = LOGCESDT ~ DELAI*(factor(CENTRE)
+                                          + ETUDE_CLAS0
+                                          + SEXE
+                                          + ANTIDEP0
+                                          + AGE0
+                                          + bs(SCORE0,knots=c(6,7,8),df=3)),
+                  data = shatter,
+                  random = ~ 1 + DELAI | ID,
+                  method="ML",
+                  na.action=na.omit)
+
+model_score_bs_3 = lme(fixed = LOGCESDT ~ DELAI*(factor(CENTRE)
+                                          + ETUDE_CLAS0
+                                          + SEXE
+                                          + ANTIDEP0
+                                          + AGE0
+                                          + bs(SCORE0)),
+                  data = shatter,
+                  random = ~ 1 + DELAI | ID,
+                  method="ML",
+                  na.action=na.omit)
+
+model_score_bs_4 = lme(fixed = LOGCESDT ~ DELAI*(factor(CENTRE)
+                                          + ETUDE_CLAS0
+                                          + SEXE
+                                          + ANTIDEP0
+                                          + AGE0
+                                          + bs(SCORE0,df=3)),
+                  data = shatter,
+                  random = ~ 1 + DELAI | ID,
+                  method="ML",
+                  na.action=na.omit)
+#NB : les noeuds sont positionnés aux quantiles
 
 model_score_lin = lme(fixed = LOGCESDT ~ DELAI*(factor(CENTRE)
                                           + ETUDE_CLAS0
@@ -653,44 +727,709 @@ model_score_lin = lme(fixed = LOGCESDT ~ DELAI*(factor(CENTRE)
                                           + ANTIDEP0
                                           + AGE0
                                           + SCORE0),
-                  data = shatter[shatter$SCORE0 !=13,],
+                  data = shatter,
                   random = ~ 1 + DELAI | ID,
                   method="ML",
                   na.action=na.omit)
 
-test_AIC = c(AIC(model_score_bs),
-             AIC(model_score_pol),
-             AIC(model_score_lin))
+test_AIC = c(AIC(model_score_pol),
+             AIC(model_score_lin),
+             AIC(model_score_bs_1),
+             AIC(model_score_bs_2),
+             AIC(model_score_bs_3),
+             AIC(model_score_bs_4))
 
-names(test_AIC) = c("Modèle avec Splines B",
-                    "Modèle polynomial",
-                    "Modèle linéaire")
+names(test_AIC) = c("Modèle polynomial",
+                    "Modèle linéaire",
+                    "Modèle b-splines avec noeuds aux quantiles",
+                    "Modèle b-splines avec noeuds aux quantiles et degrés de liberté fixes",
+                    "Modèle b-splines avec noeuds libres",
+                    "Modèle b-splines avec noeufs libres et degrés de liberté fixés")
 
 test_AIC
 ```
 
-On constate que le modèle polynomial a le meilleur AIC. On le compare au modèle linéaire :
 
-```{r}
-dev = 2*logLik(model_score_pol) - 2*logLik(model_score_lin)
-p = 1-pchisq(dev ,df=3)
-p
+Les modèles polynomial et avec b-splines à noeuds libres obtiennent un résultat équivalent. On compare le modèle polynomial au modèle linéaire :
+
+
+```{r echo=FALSE}
+lr = -2*(logLik(model_score_lin)-logLik(model_score_pol))
+pval = 1-pchisq(lr,df=4) #4 paramètres de moins car deux pour le carré et le cube à l'intercept, deux pour le carré et le cube à la pente
+pval
 ```
 
-On conserve donc le modèle polynomial.
 
-#### Interprétation des coefficients du modèle
+Le modèle est significativement amélioré. On conserve donc le modèle polynomial comme modèle final.
 
-```{r}
-summary(model_score_pol)
+On représente l'interaction avec la même méthode que pour le score SOM.
+
+On estime un modèle ajusté avec SCORE en facteur :
+
+
+```{r echo=FALSE}
+model_score_factor = lme(fixed = LOGCESDT ~ DELAI*factor(SCORE0),
+                  data = shatter,
+                  random = ~ 1 + DELAI | ID,
+                  method="ML",
+                  na.action=na.omit)
+
+model_score_pol_univ = lme(fixed = LOGCESDT ~ DELAI*(SCORE0
+                                            + I(SCORE0^2)
+                                            + I(SCORE0^3)),
+                  data = shatter,
+                  random = ~ 1 + DELAI | ID,
+                  method="ML",
+                  na.action=na.omit)
+
+model_score_lin_univ = lme(fixed = LOGCESDT ~ DELAI*SCORE0,
+                  data = shatter,
+                  random = ~ 1 + DELAI | ID,
+                  method="ML",
+                  na.action=na.omit)
+```
+
+
+
+```{r echo=FALSE}
+#On utilise une séquence à pas faible pour lisser les courbes
+xseq = seq(1,14,0.001)
+
+#On extrait les facteurs observés d'après le modèle model_score_factor :
+xscore=1:14
+yscoreint_obs = c(0,model_score_factor$coefficients$fixed[3:15]) + model_score_factor$coefficients$fixed[1]
+yscoreslope_obs = c(0,model_score_factor$coefficients$fixed[16:28]) + model_score_factor$coefficients$fixed[2]
+
+#On extrait les valeurs de l'estimation du modèle linéaire et les bornes de l'intervalle de confiance pour l'intercept
+yscoreint_lin = c()
+yscoreint_lin_bs = c()
+yscoreint_lin_bi = c()
+
+for(x in xseq){
+  fit = model_score_lin_univ$coefficients$fixed[1]+(x-1)*model_score_lin_univ$coefficients$fixed[3]
+  bs = fit+qnorm(0.975)*sqrt(vartotlin(model_score_lin_univ$varFix,c(1,3),x-1))
+  bi = fit-qnorm(0.975)*sqrt(vartotlin(model_score_lin_univ$varFix,c(1,3),x-1))
+  
+  yscoreint_lin = yscoreint_lin %>% append(fit)
+  yscoreint_lin_bs = yscoreint_lin_bs %>% append(bs)
+  yscoreint_lin_bi = yscoreint_lin_bi %>% append(bi)
+}
+
+#On extrait les valeurs de l'estimation du modèle linéaire et les bornes de l'intervalle de confiance pour la pente
+yscoreslope_lin = c()
+yscoreslope_lin_bs = c()
+yscoreslope_lin_bi = c()
+
+for(x in xseq){
+  fit = model_score_lin_univ$coefficients$fixed[2]+(x-1)*model_score_lin_univ$coefficients$fixed[4]
+  bs = fit+qnorm(0.975)*sqrt(vartotlin(model_score_lin_univ$varFix,c(2,4),x-1))
+  bi = fit-qnorm(0.975)*sqrt(vartotlin(model_score_lin_univ$varFix,c(2,4),x-1))
+  
+  yscoreslope_lin = yscoreslope_lin %>% append(fit)
+  yscoreslope_lin_bs = yscoreslope_lin_bs %>% append(bs)
+  yscoreslope_lin_bi = yscoreslope_lin_bi %>% append(bi)
+}
+
+
+#On extrait les valeurs de l'estimation du modèle polynomial et les bornes de l'intervalle de confiance pour l'intercept
+yscoreint_pol = c()
+yscoreint_pol_bs = c()
+yscoreint_pol_bi = c()
+
+for(x in xseq){
+  fit = model_score_pol_univ$coefficients$fixed[1] +
+        (x-1)*model_score_pol_univ$coefficients$fixed[3] +
+        (x-1)^2*model_score_pol_univ$coefficients$fixed[4] +
+        (x-1)^3*model_score_pol_univ$coefficients$fixed[5]
+  bs = fit+qnorm(0.975)*sqrt(vartot(model_score_pol_univ$varFix,c(1,3,4,5),x-1))
+  bi = fit-qnorm(0.975)*sqrt(vartot(model_score_pol_univ$varFix,c(1,3,4,5),x-1))
+  yscoreint_pol = yscoreint_pol %>% append(fit)
+  yscoreint_pol_bs = yscoreint_pol_bs %>% append(bs)
+  yscoreint_pol_bi = yscoreint_pol_bi %>% append(bi)
+}
+
+  #On extrait les valeurs de l'estimation du modèle polynomial et les bornes de l'intervalle de confiance pour la pente
+yscoreslope_pol = c()
+yscoreslope_pol_bs = c()
+yscoreslope_pol_bi = c()
+
+for(x in xseq){
+  fit = model_score_pol_univ$coefficients$fixed[2] +
+        (x-1)*model_score_pol_univ$coefficients$fixed[6] +
+        (x-1)^2*model_score_pol_univ$coefficients$fixed[7] +
+        (x-1)^3*model_score_pol_univ$coefficients$fixed[8]
+  bs = fit+qnorm(0.975)*sqrt(vartot(model_score_pol_univ$varFix,c(2,6,7,8),x-1))
+  bi = fit-qnorm(0.975)*sqrt(vartot(model_score_pol_univ$varFix,c(2,6,7,8),x-1))
+  yscoreslope_pol = yscoreslope_pol %>% append(fit)
+  yscoreslope_pol_bs = yscoreslope_pol_bs %>% append(bs)
+  yscoreslope_pol_bi = yscoreslope_pol_bi %>% append(bi)
+}
+```
+
+
+
+```{r echo=FALSE}
+#Création du graphique
+#Ajout de la légende
+
+#Graphique des points observés selon le modèle factor
+par(mfrow=c(1,2),
+    oma = c(3.5, 0, 1, 0))
+
+#Intercept
+plot(xscore,yscoreint_obs,
+     xlab = "Score cardiovasculaire",
+     ylab = "Score CESDT initial",
+     ylim=c(1.6,2.8))
+
+#Ajout du modèle linéaire et de son intervalle de confiance
+lines(xseq,yscoreint_lin,col="darkblue")
+color_blue = rgb(0, 0, 139, max = 255, alpha = 30)
+polygon(c(xseq,rev(xseq)), c(yscoreint_lin_bs, rev(yscoreint_lin_bi)),
+        col = color_blue,border = NA)
+
+#Ajout du modèle polynomial et de son intervalle de confiance
+lines(xseq,yscoreint_pol,col="darkred")
+color_red = rgb(139, 0, 0, max = 255, alpha = 30)
+polygon(c(xseq,rev(xseq)), c(yscoreint_pol_bs, rev(yscoreint_pol_bi)),
+        col = color_red,border = NA)
+
+#Pente
+plot(xscore,yscoreslope_obs,
+     xlab = "Score SOM",
+     ylab = "Effet d'une unité de temps sur le score CESDT",
+     ylim = c(-0.13,0.08))
+
+#Ajout du modèle linéaire et de son intervalle de confiance
+lines(xseq,yscoreslope_lin,col="darkblue")
+color_blue = rgb(0, 0, 139, max = 255, alpha = 30)
+polygon(c(xseq,rev(xseq)), c(yscoreslope_lin_bs, rev(yscoreslope_lin_bi)),
+        col = color_blue,border = NA)
+
+#Ajout du modèle polynomial et de son intervalle de confiance
+lines(xseq,yscoreslope_pol,col="darkred")
+color_red = rgb(139, 0, 0, max = 255, alpha = 30)
+polygon(c(xseq,rev(xseq)), c(yscoreslope_pol_bs, rev(yscoreslope_pol_bi)),
+        col = color_red,border = NA)
+
+par(xpd=NA)
+
+legend(x=-10.5,y=-0.24,
+       legend=c("Régression linéaire",
+                "Régression polynomiale"),
+       xpd = NA,
+       lty = 1,
+       col = c("darkblue",
+               "darkred"))
+
+```
+
+#### Présentation du modèle final
+
+
+```{r echo=FALSE}
+#Calcul des p-valeurs
+
+#Modèle complet. On sépare les facteurs à l'entrée dans l'étude et les facteurs d'évolution au cours du temps.
+
+pval_lr = function(mc,mr,df){
+  lr = -2*(logLik(mr)-logLik(mc))
+  p = 1-pchisq(lr,df=df)
+  pval = ifelse(p < 0.001, "<0.001",round(p,3))
+  return(pval)
+}
+
+mc = lme(fixed = LOGCESDT ~ (factor(CENTRE)
+                           + ETUDE_CLAS0
+                           + SEXE
+                           + ANTIDEP0
+                           + AGECENTER
+                           + SCORE0
+                           + I(SCORE0^2)
+                           + I(SCORE0^3))
+                           + DELAI
+                           + DELAI:(factor(CENTRE)
+                                  + ETUDE_CLAS0
+                                  + SEXE
+                                  + ANTIDEP0
+                                  + AGECENTER
+                                  + SCORE0
+                                  + I(SCORE0^2)
+                                  + I(SCORE0^3)),
+            data = shatter,
+            random = ~ 1 + DELAI | ID,
+            method="ML",
+            na.action=na.omit)
+
+mr_int_centre = lme(fixed = LOGCESDT ~ (ETUDE_CLAS0
+                           + SEXE
+                           + ANTIDEP0
+                           + AGECENTER
+                           + SCORE0
+                           + I(SCORE0^2)
+                           + I(SCORE0^3))
+                           + DELAI
+                           + DELAI:(factor(CENTRE)
+                                  + ETUDE_CLAS0
+                                  + SEXE
+                                  + ANTIDEP0
+                                  + AGECENTER
+                                  + SCORE0
+                                  + I(SCORE0^2)
+                                  + I(SCORE0^3)),
+            data = shatter,
+            random = ~ 1 + DELAI | ID,
+            method="ML",
+            na.action=na.omit)
+
+picentre = pval_lr(mc,mr_int_centre,df=2)
+
+mr_int_etude = lme(fixed = LOGCESDT ~ (factor(CENTRE)
+                           + SEXE
+                           + ANTIDEP0
+                           + AGECENTER
+                           + SCORE0
+                           + I(SCORE0^2)
+                           + I(SCORE0^3))
+                           + DELAI
+                           + DELAI:(factor(CENTRE)
+                                  + ETUDE_CLAS0
+                                  + SEXE
+                                  + ANTIDEP0
+                                  + AGECENTER
+                                  + SCORE0
+                                  + I(SCORE0^2)
+                                  + I(SCORE0^3)),
+            data = shatter,
+            random = ~ 1 + DELAI | ID,
+            method="ML",
+            na.action=na.omit)
+
+pietude = pval_lr(mc,mr_int_etude,df=3)
+
+mr_int_sexe = lme(fixed = LOGCESDT ~ (factor(CENTRE)
+                           + ETUDE_CLAS0
+                           + ANTIDEP0
+                           + AGECENTER
+                           + SCORE0
+                           + I(SCORE0^2)
+                           + I(SCORE0^3))
+                           + DELAI
+                           + DELAI:(factor(CENTRE)
+                                  + ETUDE_CLAS0
+                                  + SEXE
+                                  + ANTIDEP0
+                                  + AGECENTER
+                                  + SCORE0
+                                  + I(SCORE0^2)
+                                  + I(SCORE0^3)),
+            data = shatter,
+            random = ~ 1 + DELAI | ID,
+            method="ML",
+            na.action=na.omit)
+
+pisexe = pval_lr(mc,mr_int_sexe,df=1)
+
+mr_int_antidep = lme(fixed = LOGCESDT ~ (factor(CENTRE)
+                           + ETUDE_CLAS0
+                           + SEXE
+                           + AGECENTER
+                           + SCORE0
+                           + I(SCORE0^2)
+                           + I(SCORE0^3))
+                           + DELAI
+                           + DELAI:(factor(CENTRE)
+                                  + ETUDE_CLAS0
+                                  + SEXE
+                                  + ANTIDEP0
+                                  + AGECENTER
+                                  + SCORE0
+                                  + I(SCORE0^2)
+                                  + I(SCORE0^3)),
+            data = shatter,
+            random = ~ 1 + DELAI | ID,
+            method="ML",
+            na.action=na.omit)
+
+piantidep = pval_lr(mc,mr_int_antidep,df=1)
+
+mr_int_age = lme(fixed = LOGCESDT ~ (factor(CENTRE)
+                           + ETUDE_CLAS0
+                           + SEXE
+                           + ANTIDEP0
+                           + SCORE0
+                           + I(SCORE0^2)
+                           + I(SCORE0^3))
+                           + DELAI
+                           + DELAI:(factor(CENTRE)
+                                  + ETUDE_CLAS0
+                                  + SEXE
+                                  + ANTIDEP0
+                                  + AGECENTER
+                                  + SCORE0
+                                  + I(SCORE0^2)
+                                  + I(SCORE0^3)),
+            data = shatter,
+            random = ~ 1 + DELAI | ID,
+            method="ML",
+            na.action=na.omit)
+
+piage = pval_lr(mc,mr_int_age,df=1)
+
+mr_int_score = lme(fixed = LOGCESDT ~ (factor(CENTRE)
+                           + ETUDE_CLAS0
+                           + SEXE
+                           + ANTIDEP0
+                           + AGECENTER)
+                           + DELAI
+                           + DELAI:(factor(CENTRE)
+                                  + ETUDE_CLAS0
+                                  + SEXE
+                                  + ANTIDEP0
+                                  + AGECENTER
+                                  + SCORE0
+                                  + I(SCORE0^2)
+                                  + I(SCORE0^3)),
+            data = shatter,
+            random = ~ 1 + DELAI | ID,
+            method="ML",
+            na.action=na.omit)
+
+piscore = pval_lr(mc,mr_int_score,df=3)
+
+mr_slope_centre = lme(fixed = LOGCESDT ~ (factor(CENTRE)
+                           + ETUDE_CLAS0
+                           + SEXE
+                           + ANTIDEP0
+                           + AGECENTER
+                           + SCORE0
+                           + I(SCORE0^2)
+                           + I(SCORE0^3))
+                           + DELAI
+                           + DELAI:(ETUDE_CLAS0
+                                  + SEXE
+                                  + ANTIDEP0
+                                  + AGECENTER
+                                  + SCORE0
+                                  + I(SCORE0^2)
+                                  + I(SCORE0^3)),
+            data = shatter,
+            random = ~ 1 + DELAI | ID,
+            method="ML",
+            na.action=na.omit)
+
+pscentre = pval_lr(mc,mr_slope_centre,df=2)
+
+mr_slope_etude = lme(fixed = LOGCESDT ~ (factor(CENTRE)
+                           + ETUDE_CLAS0
+                           + SEXE
+                           + ANTIDEP0
+                           + AGECENTER
+                           + SCORE0
+                           + I(SCORE0^2)
+                           + I(SCORE0^3))
+                           + DELAI
+                           + DELAI:(factor(CENTRE)
+                                  + SEXE
+                                  + ANTIDEP0
+                                  + AGECENTER
+                                  + SCORE0
+                                  + I(SCORE0^2)
+                                  + I(SCORE0^3)),
+            data = shatter,
+            random = ~ 1 + DELAI | ID,
+            method="ML",
+            na.action=na.omit)
+
+psetude = pval_lr(mc,mr_slope_etude,df=3)
+
+mr_slope_sexe = lme(fixed = LOGCESDT ~ (factor(CENTRE)
+                           + ETUDE_CLAS0
+                           + SEXE
+                           + ANTIDEP0
+                           + AGECENTER
+                           + SCORE0
+                           + I(SCORE0^2)
+                           + I(SCORE0^3))
+                           + DELAI
+                           + DELAI:(factor(CENTRE)
+                                  + ETUDE_CLAS0
+                                  + ANTIDEP0
+                                  + AGECENTER
+                                  + SCORE0
+                                  + I(SCORE0^2)
+                                  + I(SCORE0^3)),
+            data = shatter,
+            random = ~ 1 + DELAI | ID,
+            method="ML",
+            na.action=na.omit)
+
+pssexe = pval_lr(mc,mr_slope_sexe,df=1)
+
+mr_slope_antidep  = lme(fixed = LOGCESDT ~ (factor(CENTRE)
+                           + ETUDE_CLAS0
+                           + SEXE
+                           + ANTIDEP0
+                           + AGECENTER
+                           + SCORE0
+                           + I(SCORE0^2)
+                           + I(SCORE0^3))
+                           + DELAI
+                           + DELAI:(factor(CENTRE)
+                                  + ETUDE_CLAS0
+                                  + SEXE
+                                  + AGECENTER
+                                  + SCORE0
+                                  + I(SCORE0^2)
+                                  + I(SCORE0^3)),
+            data = shatter,
+            random = ~ 1 + DELAI | ID,
+            method="ML",
+            na.action=na.omit)
+
+psantidep = pval_lr(mc,mr_slope_antidep,df=1)
+
+mr_slope_age = lme(fixed = LOGCESDT ~ (factor(CENTRE)
+                           + ETUDE_CLAS0
+                           + SEXE
+                           + ANTIDEP0
+                           + AGECENTER
+                           + SCORE0
+                           + I(SCORE0^2)
+                           + I(SCORE0^3))
+                           + DELAI
+                           + DELAI:(factor(CENTRE)
+                                  + ETUDE_CLAS0
+                                  + SEXE
+                                  + ANTIDEP0
+                                  + SCORE0
+                                  + I(SCORE0^2)
+                                  + I(SCORE0^3)),
+            data = shatter,
+            random = ~ 1 + DELAI | ID,
+            method="ML",
+            na.action=na.omit)
+
+psage = pval_lr(mc,mr_slope_age,df=1)
+
+mr_slope_score = lme(fixed = LOGCESDT ~ (factor(CENTRE)
+                           + ETUDE_CLAS0
+                           + SEXE
+                           + ANTIDEP0
+                           + AGECENTER
+                           + SCORE0
+                           + I(SCORE0^2)
+                           + I(SCORE0^3))
+                           + DELAI
+                           + DELAI:(factor(CENTRE)
+                                  + ETUDE_CLAS0
+                                  + SEXE
+                                  + ANTIDEP0
+                                  + AGECENTER),
+            data = shatter,
+            random = ~ 1 + DELAI | ID,
+            method="ML",
+            na.action=na.omit)
+
+psscore = pval_lr(mc,mr_slope_score,df=3)
+
+coef = model_score_pol$coefficients$fixed
+vcov = model_score_pol$varFix
+varint = c("Entrée dans l'étude (classe de référence)",
+        "Centre :",
+        "- Bordeaux",
+        "- Dijon",
+        "- Montpellier",
+        "Niveau d'études",
+        "- Sans études ou primaire",
+        "- Secondaire court",
+        "- Secondaire long",
+        "- Enseignement supérieur",
+        "Sexe masculin",
+        " Prise d'antidépresseurs à l'inclusion",
+        "Age à l'inclusion",
+        "Score à l'inclusion :",
+        "- 1",
+        "- 4",
+        "- 7",
+        "- 10",
+        "- 13")
+
+coefint = c(round(coef[1],2),
+        "",
+        "Référence",
+        round(coef[3],2),
+        round(coef[4],2),
+        "",
+        "Référence",
+        round(coef[5],2),
+        round(coef[6],2),
+        round(coef[7],2),
+        round(coef[8],2),
+        round(coef[9],2),
+        round(coef[10],2),
+        "",
+        "Référence",
+        round(4*coef[11]+(4^2)*coef[12]+(4^3)*coef[13],2),
+        round(7*coef[11]+(7^2)*coef[12]+(7^3)*coef[13],2),
+        round(10*coef[11]+(10^2)*coef[12]+(10^3)*coef[13],2),
+        round(13*coef[11]+(13^2)*coef[12]+(13^3)*coef[13],2))
+
+cic = function(ncoef,coef,vcov){
+  val = coef[ncoef]
+  b = qnorm(0.975)*sqrt(vcov[ncoef,ncoef])
+  ci = paste("[",
+             round(val-b,2),
+             " - ",
+             round(val+b,2),
+             "]",
+             sep="")
+  return(ci)
+}
+
+cics = function(vcov,coeffs,x){
+  var= x^2*vcov[coeffs[1],coeffs[1]] +
+    x^4*vcov[coeffs[2],coeffs[2]] +
+    x^6*vcov[coeffs[3],coeffs[3]] +
+    x^3*vcov[coeffs[1],coeffs[2]] +
+    x^4*vcov[coeffs[1],coeffs[3]] +
+    x^5*vcov[coeffs[2],coeffs[3]]
+  
+  val = x*coef[coeffs[1]] +
+        x^2*coef[coeffs[2]] +
+        x^3*coef[coeffs[3]]
+  
+  b = qnorm(0.975)*sqrt(var)
+  ci = paste("[",
+             round(val-b,2),
+             " - ",
+             round(val+b,2),
+             "]",
+             sep="")
+  return(ci)
+  
+  return(resp)
+}
+
+confint_int = c(cic(1,coef,vcov),
+        "",
+        "",
+        cic(3,coef,vcov),
+        cic(4,coef,vcov),
+        "",
+        "",
+        cic(5,coef,vcov),
+        cic(6,coef,vcov),
+        cic(7,coef,vcov),
+        cic(8,coef,vcov),
+        cic(9,coef,vcov),
+        cic(10,coef,vcov),
+        "",
+        "",
+        cics(vcov,c(11,12,13),4),
+        cics(vcov,c(11,12,13),7),
+        cics(vcov,c(11,12,13),10),
+        cics(vcov,c(11,12,13),13))
+
+pval_int = c("",
+             picentre,
+             "",
+             "",
+             "",
+             pietude,
+             "",
+             "",
+             "",
+             "",
+             pisexe,
+             piantidep,
+             piage,
+             piscore,
+             "",
+             "",
+             "",
+             "",
+             "")
+
+coefslope = c(round(coef[2],2),
+        "",
+        "Référence",
+        round(coef[14],2),
+        round(coef[15],2),
+        "",
+        "Référence",
+        round(coef[16],2),
+        round(coef[17],2),
+        round(coef[18],2),
+        round(coef[19],2),
+        round(coef[20],2),
+        round(coef[21],2),
+        "",
+        "Référence",
+        round(4*coef[22]+(4^2)*coef[23]+(4^3)*coef[24],2),
+        round(7*coef[22]+(7^2)*coef[23]+(7^3)*coef[24],2),
+        round(10*coef[22]+(10^2)*coef[23]+(10^3)*coef[24],2),
+        round(13*coef[22]+(13^2)*coef[23]+(13^3)*coef[24],2))
+
+confint_slope = c(cic(2,coef,vcov),
+        "",
+        "",
+        cic(14,coef,vcov),
+        cic(15,coef,vcov),
+        "",
+        "",
+        cic(16,coef,vcov),
+        cic(17,coef,vcov),
+        cic(18,coef,vcov),
+        cic(19,coef,vcov),
+        cic(20,coef,vcov),
+        cic(21,coef,vcov),
+        "",
+        "",
+        cics(vcov,c(22,23,24),4),
+        cics(vcov,c(22,23,24),7),
+        cics(vcov,c(22,23,24),10),
+        cics(vcov,c(22,23,24),13))
+
+pval_slope = c("",
+               pscentre,
+               "",
+               "",
+               "",
+               psetude,
+               "",
+               "",
+               "",
+               "",
+               pssexe,
+               psantidep,
+               psage,
+               psscore,
+               "",
+               "",
+               "",
+               "",
+               "")
+
+colnm = c("Variable","Effet à l'entrée dans l'étude","IC95","p-valeur","Effet par an","IC95","p-valeur")
+tab = data.frame(varint,coefint,confint_int,pval_int,coefslope,confint_slope,pval_slope)
+kable(tab,col.names = colnm, align = "c")
 ```
 
 #### Adéquation du modèle
 
-```{r}
+```{r echo=FALSE}
 plot(model_score_pol)
 par(mfrow=c(1,2))
 plot(density(model_score_pol$coefficients$random$ID[,1],xlab="intercept",main="predicted random intercept"))
 plot(density(model_score_pol$coefficients$random$ID[,2],xlab="pente",main="predicted random slope"))
+```
+
+
+### Comparaison des deux modèles
+
+```{r echo=FALSE}
+c(AIC(model),
+  AIC(model_score_pol))
 ```
 
